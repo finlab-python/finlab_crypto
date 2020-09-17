@@ -7,6 +7,10 @@ from binance.client import Client
 from datetime import timedelta, datetime, timezone
 from dateutil import parser
 from tqdm import tqdm_notebook #(Optional, used for progress-bars)
+  
+import json
+import requests
+import pandas as pd
 
 ### CONSTANTS
 binsizes = {"1m": 1, "5m": 5, "1h": 60, "1d": 1440}
@@ -89,3 +93,43 @@ def get_all_bitmex(symbol, kline_size, save = True):
     print('All caught up..!')
     data_df.index = pd.to_datetime(data_df.index, utc=True)
     return data_df.astype(float)
+
+
+class GlassnodeClient:
+
+  def __init__(self):
+    self._api_key = ''
+
+  @property
+  def api_key(self):
+    return self._api_key
+
+  def set_api_key(self, value):
+    self._api_key = value
+
+  def get(self, url, a='BTC', i='24h', c='native', s=None, u=None):
+    p = dict()
+    p['a'] = a
+    p['i'] = i
+    p['c'] = c
+
+    p['api_key'] = self.api_key
+
+    r = requests.get(url, params=p)
+
+    try:
+       r.raise_for_status()
+    except Exception as e:
+        print(e)
+        print(r.text)
+
+    try:
+        df = pd.DataFrame(json.loads(r.text))
+        df = df.set_index('t')
+        df.index = pd.to_datetime(df.index, unit='s')
+        df = df.sort_index()
+        s = df.v
+        s.name = '_'.join(url.split('/')[-2:])
+        return s
+    except Exception as e:
+        print(e)

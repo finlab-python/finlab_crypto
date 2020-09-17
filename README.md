@@ -1,12 +1,15 @@
 # A backtesting framework for crytpo currency
 
 ## Todo
-* remove vectorbt heatmap dependencies
-* improve optimization plots
 * add portfolio backtest
-* set default fees and slippage
 
 ## Updates
+Version 0.0.9.dev1
+* vectorbt heatmap redesign
+* improve optimization plots
+* redesign strategy interface
+* add new function setup, to replace setup_colab
+
 Version 0.0.8.dev1
 * fix transaction duplicate bug
 

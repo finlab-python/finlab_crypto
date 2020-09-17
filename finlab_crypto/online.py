@@ -121,14 +121,18 @@ class TradingPortfolio():
           symbol_lookbacks[(a, method.freq)] = method.lookback
 
     return symbol_lookbacks
-
-  def get_latest_signals(self):
+  
+  def get_ohlcvs(self):
 
     symbol_lookbacks = self.get_all_symbol_lookback()
 
     ohlcvs = {}
     for (symbol, freq), lookback in symbol_lookbacks.items():
       ohlcvs[(symbol, freq)] = get_nbars_binance(symbol, freq, lookback, self._client)
+      
+    return ohlcvs
+
+  def get_latest_signals(self, ohlcvs):
 
     ret = []
     for method in self._trading_methods:
@@ -138,7 +142,7 @@ class TradingPortfolio():
           assert method.strategy == 'buy_and_hold'
           signal = True
         else:
-          result = method.strategy.latest_signal(ohlcv, method.variables, lookback_period=method.lookback)
+          result = method.strategy.backtest(ohlcv, method.variables, lookback=method.lookback, freq=method.freq)
           signal = result.cash.iloc[-1] == 0
           return_ = 0 if not signal else result.positions.records.iloc[-1]['return']
 

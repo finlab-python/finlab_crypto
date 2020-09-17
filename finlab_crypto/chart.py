@@ -196,7 +196,6 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     else:
         range_start =  95#100 - int(10000/len(dfstock))
 
-    print('range_start', range_start)
     kline.set_global_opts(
             legend_opts=opts.LegendOpts(pos_top='0px', pos_left=str(margin_left)),
             xaxis_opts=opts.AxisOpts(is_scale=True),
