@@ -13,7 +13,7 @@ import requests
 import pandas as pd
 
 ### CONSTANTS
-binsizes = {"1m": 1, "5m": 5, "1h": 60, "1d": 1440}
+binsizes = {"1m": 1, "5m": 5, "1h": 60, "4h": 240, "1d": 1440}
 batch_size = 750
 
 ### FUNCTIONS

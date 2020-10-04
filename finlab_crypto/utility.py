@@ -13,7 +13,17 @@ import copy
 from . import chart
 from . import overfitting
 
+def remove_pd_object(d):
+    ret = {}
+    for n, v in d.items():
+        if not isinstance(v, pd.Series) and not isinstance(v, pd.DataFrame) and not callable(v):
+            ret[n] = v
+    return ret
+
 def enumerate_variables(variables):
+    
+    if variables is None:
+        return []
 
     enumeration_name = []
     enumeration_vars = []
@@ -38,14 +48,9 @@ def enumerate_variables(variables):
     
     return variable_enumerations
   
-def remove_pd_object(d):
-    ret = {}
-    for n, v in d.items():
-        if not isinstance(v, pd.Series) and not isinstance(v, pd.DataFrame):
-            ret[n] = v
-    return ret
 
-def enumerate_signal(ohlcv, strategy, variables):
+
+def enumerate_signal(ohlcv, strategy, variables, ):
     entries = {}
     exits = {}
     
@@ -58,20 +63,19 @@ def enumerate_signal(ohlcv, strategy, variables):
         v = remove_pd_object(v)
         
         entries[str(v)], exits[str(v)] = results[0], results[1]
-        if fig is None and len(results) >= 3:
+        if len(results) >= 3:
             fig = results[2]
 
     entries = pd.DataFrame(entries)
     exits = pd.DataFrame(exits)
     
     # setup columns
-    if entries.shape[1] > 1:
-        param_names = list(eval(entries.columns[0]).keys())
-        arrays = ([entries.columns.map(lambda s: eval(s)[p]) for p in param_names])
-        tuples = list(zip(*arrays))
-        columns = pd.MultiIndex.from_tuples(tuples, names=param_names)
-        exits.columns = columns
-        entries.columns = columns
+    param_names = list(eval(entries.columns[0]).keys())
+    arrays = ([entries.columns.map(lambda s: eval(s)[p]) for p in param_names])
+    tuples = list(zip(*arrays))
+    columns = pd.MultiIndex.from_tuples(tuples, names=param_names)
+    exits.columns = columns
+    entries.columns = columns
     return entries, exits, fig
 
 def stop_early(ohlcv, stop_type, stop_percentages, entries, exits):

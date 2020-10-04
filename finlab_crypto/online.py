@@ -121,7 +121,7 @@ class TradingPortfolio():
           symbol_lookbacks[(a, method.freq)] = method.lookback
 
     return symbol_lookbacks
-  
+
   def get_ohlcvs(self):
 
     symbol_lookbacks = self.get_all_symbol_lookback()
@@ -129,7 +129,7 @@ class TradingPortfolio():
     ohlcvs = {}
     for (symbol, freq), lookback in symbol_lookbacks.items():
       ohlcvs[(symbol, freq)] = get_nbars_binance(symbol, freq, lookback, self._client)
-      
+
     return ohlcvs
 
   def get_latest_signals(self, ohlcvs):
@@ -260,6 +260,8 @@ class TradingPortfolio():
     decrease_asset_amount = rebalance_value_btc[rebalance_value_btc < 0]
 
     # assumption: all asset in tickers has liquidity
+    print("increase_asset_amount", increase_asset_amount)
+    print("decrease_asset_amount", decrease_asset_amount)
 
     txn_btc = {}
 
@@ -270,6 +272,7 @@ class TradingPortfolio():
         amount = min(-ad, ai)
 
         is_valid = list_select(tickers, 'symbol', symbol) is not None and nai in quote_asset_list
+        print(symbol, is_valid)
 
         if is_valid:
           increase_asset_amount.loc[nai] -= amount
@@ -278,7 +281,8 @@ class TradingPortfolio():
           break
 
         symbol = nai + nad
-        is_valid = list_select(tickers, 'symbol', symbol) is not None and nai in quote_asset_list
+        is_valid = list_select(tickers, 'symbol', symbol) is not None and nad in quote_asset_list
+        print(symbol, is_valid, quote_asset_list)
 
         if is_valid:
           increase_asset_amount.loc[nai] -= amount

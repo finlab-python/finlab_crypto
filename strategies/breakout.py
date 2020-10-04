@@ -1,22 +1,22 @@
 from finlab_crypto.strategy import Strategy
 
-@Strategy(up_window=21, dn_window=144)
+
+@Strategy(long_window=30, short_window=30)
 def breakout_strategy(ohlcv):
+    lw = breakout_strategy.long_window
+    sw = breakout_strategy.short_window
     
-    v1 = breakout_strategy.up_window
-    v2 = breakout_strategy.dn_window
+    ub = ohlcv.close.rolling(lw).max()
+    lb = ohlcv.close.rolling(sw).min()
     
-    up = ohlcv.open.rolling(v1).max()
-    dn = ohlcv.open.rolling(v2).min()
-  
-    entries = (ohlcv.close >= up) & (ohlcv.close.shift() < up.shift())
-    exits = (ohlcv.close <= dn) & (ohlcv.close.shift() > dn.shift())
-  
-    figure = {
+    entries = ohlcv.close == ub
+    exits = ohlcv.close == lb
+    
+    figures = {
         'overlaps': {
-             str(v1) + 'max': up,
-             str(v2) + 'min': dn,
+            'ub': ub,
+            'lb': lb
         }
     }
-
-    return entries, exits, figure
+    
+    return entries, exits, figures

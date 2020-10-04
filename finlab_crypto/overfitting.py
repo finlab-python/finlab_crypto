@@ -9,9 +9,9 @@ import pandas as pd
 import numpy as np
 
 def sharp_ratio(x):
-  ret = x.mean(axis=0)#/x.std(axis=0)
-  ret = np.nan_to_num(ret, -10000000)
-  return ret
+  mean = x.mean(axis=0)
+  std = x.std(axis=0)
+  return (mean / std)[std != 0]
 
 
 def CSCV(
