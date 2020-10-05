@@ -4,6 +4,17 @@
 * add portfolio backtest
 
 ## Updates
+Version 0.1.1
+* fix talib error
+* add filters folder
+* add excluded assets when sync portfolio
+* add filter folder to setup
+
+Version 0.1.0
+* add filter interface
+* add talib strategy wrapper
+* add talib filter wrapper
+
 Version 0.0.9.dev1
 * vectorbt heatmap redesign
 * improve optimization plots

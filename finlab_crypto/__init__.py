@@ -41,7 +41,9 @@ def setup_colab():
   check_and_create_dir('/content/drive/My Drive/crypto_workspace')
   check_and_create_dir('/content/drive/My Drive/crypto_workspace/strategies')
   check_and_create_dir('/content/drive/My Drive/crypto_workspace/history')
+  check_and_create_dir('/content/drive/My Drive/crypto_workspace/filters')
   ln_dir("/content/drive/My Drive/crypto_workspace/strategies")
+  ln_dir("/content/drive/My Drive/crypto_workspace/filters")
   ln_dir("/content/drive/My Drive/crypto_workspace/history")
 
 def setup():
@@ -51,4 +53,5 @@ def setup():
     else:
         check_and_create_dir('strategies')
         check_and_create_dir('history')
+        check_and_create_dir('filters')
 

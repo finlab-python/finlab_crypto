@@ -5,95 +5,6 @@ from binance.enums import *
 from finlab_crypto.crawler import get_nbars_binance
 from binance.client import Client
 
-def check_before_rebalance(client, signals, prices, invested_base, fixed_assets, rebalance=False):
-
-  # calculate signal
-  signals = pd.Series(signals)
-
-  # calculate position in btc
-  position_base_value = (invested_base * signals)
-
-  # calculate position in crypto (algo_size)
-  symbols = signals.index.to_list()
-  last_price = pd.Series({name: prices[name].close.iloc[-1] for name in symbols}).astype(float)
-  algo_size = (position_base_value / last_price)
-
-  # get account balance
-  info = client.get_account()
-  exinfo = client.get_exchange_info()
-
-  # get account balance
-  balance = {i['asset']: (i['free'], i['locked']) for i in info['balances']}
-
-
-  # calculate account size
-  account_size = pd.Series({s:[balance[s[:-3]][0]][0] for s in symbols}).astype(float)
-
-  # calculate default position size
-  fixed_size = pd.Series(fixed_assets).reindex(symbols).fillna(0).astype(float)
-
-  # exchange info (for lot filters)
-  def list_select(list, key, value):
-    return [l for l in list if l[key] == value][0]
-
-  def get_filters(exinfo, symbol):
-    filters = list_select(exinfo['symbols'], 'symbol', symbol)['filters']
-    min_lot_size = list_select(filters, 'filterType', 'LOT_SIZE')['minQty']
-    step_size = list_select(filters, 'filterType', 'LOT_SIZE')['stepSize']
-    min_notional = list_select(filters, 'filterType', 'MIN_NOTIONAL')['minNotional']
-    return {
-        'min_lot_size': min_lot_size,
-        'step_size': step_size,
-        'min_notional': min_notional,
-    }
-  filters = pd.DataFrame({s: get_filters(exinfo, s) for s in symbols}).transpose().astype(float)
-
-  min_notional = filters.min_notional
-  minimum_lot_size = filters.min_lot_size
-  step_size = filters.step_size
-
-
-  # calculate target size
-  target_size = algo_size + fixed_size
-
-  # REBALANCE:
-  delta_size = ((target_size - account_size) / step_size).astype(int) * step_size
-
-  # NO REBALANCE:
-  same_direction = (
-      ((algo_size > 0) & (account_size - fixed_size > minimum_lot_size)) |
-      ((algo_size == 0) & (account_size - fixed_size < minimum_lot_size))
-  )
-
-  delta_size = delta_size * (1-same_direction)
-  delta_size[delta_size.abs() < minimum_lot_size] = 0
-
-  # REBALANCE:
-  delta_size = ((target_size - account_size) / step_size).astype(int) * step_size
-
-  # NO REBALANCE:
-  if not rebalance:
-    same_direction = (
-        ((algo_size > 0) & (account_size - fixed_size > minimum_lot_size)) |
-        ((algo_size < 0) & (account_size - fixed_size < minimum_lot_size))
-    )
-    delta_size = delta_size * (1-same_direction)
-
-  # minimim lot size filter
-  delta_size[delta_size.abs() < minimum_lot_size] = 0
-  delta_size[delta_size.abs() * last_price < min_notional] = 0
-
-  return pd.DataFrame({'algo_size':algo_size, 'algo_size_btc': position_base_value,
-  'fixed_size':fixed_assets,
-  'account_size':account_size,
-  'target_size':target_size,
-  'target_size_btc': target_size * last_price,
-  'delta_size':delta_size,
-  'minimum_lot_size':minimum_lot_size,'last_price': last_price
-  })
-
-
-
 class TradingMethod():
   def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc, name=''):
     self.symbols = symbols
@@ -170,7 +81,7 @@ class TradingPortfolio():
     ret = pd.DataFrame(ret)
     return ret
 
-  def calculate_transaction(self, signals, fixed_position, quote_asset_list, algo_threshold_to_rebalance=0.05, fixed_threshold_to_rebalance=0.01):
+  def calculate_transaction(self, signals, fixed_position, quote_asset_list, algo_threshold_to_rebalance=0.05, fixed_threshold_to_rebalance=0.01, excluded_assets=None):
 
     def list_select(list, key, value):
       ret = [l for l in list if l[key] == value]
@@ -248,14 +159,16 @@ class TradingPortfolio():
       'threshold_to_rebalance': max_algo_value * algo_threshold_to_rebalance + fixed_position * asset_price_in_btc * fixed_threshold_to_rebalance,
     })
     diff_value_btc['rebalance'] = diff_value_btc['difference'].abs() >  diff_value_btc['threshold_to_rebalance']
+    diff_value_btc['excluded'] = diff_value_btc.index.isin(excluded_assets)
 
     diff_value = diff_value_btc.copy()
     diff_value = diff_value.div(asset_price_in_btc, axis=0)
     diff_value.rebalance = diff_value.rebalance != 0
+    diff_value.excluded = diff_value.excluded != 0
 
     # calculate transaction
 
-    rebalance_value_btc = diff_value_btc.rebalance * diff_value_btc.difference
+    rebalance_value_btc = diff_value_btc.rebalance * diff_value_btc.difference * (~diff_value_btc.excluded)
     increase_asset_amount = rebalance_value_btc[rebalance_value_btc > 0]
     decrease_asset_amount = rebalance_value_btc[rebalance_value_btc < 0]
 
@@ -357,157 +270,6 @@ class TradingPortfolio():
         transaction['final_value_in_btc'] = diff * transaction.base_asset.map(get_asset_price_in_btc)
 
     return diff_value, diff_value_btc, transaction
-
-  def calculate_rebalance_position(self, df, fixed_position, quote_assets, rebalance_threshold=0.3):
-
-    exinfo = self._client.get_exchange_info()
-    info = self._client.get_account()
-    tickers = self._client.get_symbol_ticker()
-
-    def get_price_in_btc(symbol):
-
-      # assume global variables: exinfo, tickers
-
-      sinfo = list_select(exinfo['symbols'], 'symbol', symbol)
-      base_asset = sinfo['baseAsset']
-      quote_asset = sinfo['quoteAsset']
-
-      if base_asset == 'BTC':
-        return 1
-
-      ret = list_select(tickers, 'symbol', base_asset + 'BTC')
-
-      if ret is not None:
-        return float(ret['price'])
-
-      ret = list_select(tickers, 'symbol', 'BTC' + base_asset)
-      return 1/float(ret['price'])
-
-    def get_asset_price_in_btc(asset):
-
-      if asset == 'BTC':
-        return 1
-
-      ret = list_select(tickers, 'symbol', asset + 'BTC')
-
-      if ret is not None:
-        return float(ret['price'])
-
-      ret = list_select(tickers, 'symbol', 'BTC' + asset)
-      if ret is not None:
-        return 1/float(ret['price'])
-
-      return None
-
-    def list_select(list, key, value):
-      ret = [l for l in list if l[key] == value]
-      if len(ret) == 0:
-        return None
-      else:
-        return ret[0]
-
-    def get_base_asset(symbol):
-      sinfo = list_select(exinfo['symbols'], 'symbol', symbol)
-      return sinfo['baseAsset']
-
-    def get_quote_asset(symbol):
-      sinfo = list_select(exinfo['symbols'], 'symbol', symbol)
-      return sinfo['quoteAsset']
-
-
-    # format fixed position
-    fixed_position_in_symbol = {}
-    for asset, value in fixed_position.items():
-      symbol = asset + quote_assets[asset] if asset in quote_assets else asset + quote_assets['default']
-      fixed_position_in_symbol[symbol] = value
-
-    # get algo value
-    algo_value_in_btc = (df['latest_signal'] * df['weight_btc']).groupby(df.symbol).sum()
-
-    # calculate current portfolio
-    position = pd.Series({i['asset']:i['free'] for i in info['balances'] if float(i['free']) != 0}).astype(float)
-    position = position[position.index.str[:2] != 'LD']
-    position = position[position.index != 'USDT']
-    position = position.to_frame(name='value')
-    position.index.set_names('asset', inplace=True)
-    position['symbol'] = position.index.map(lambda a:a+quote_assets[a] if a in quote_assets else a+quote_assets['default'])
-    position = position.reset_index().set_index('symbol')
-
-
-    all_symbols = list(set(position.index) | set(algo_value_in_btc.index))
-    position = position.reindex(all_symbols)
-    position['asset'] = position.index.map(get_base_asset)
-    position['quote_asset'] = position.index.map(get_quote_asset)
-    position['value'].fillna(0, inplace=True)
-
-
-
-    # add price calculation
-    position['asset_price_in_btc'] = position.asset.map(get_asset_price_in_btc)
-    position['value_in_btc'] = position.value * position.asset_price_in_btc
-
-    # algo value
-    position['algo_value_in_btc'] = algo_value_in_btc.reindex(all_symbols).fillna(0)
-    reduce_value = position['algo_value_in_btc'].groupby(position.quote_asset).sum().reindex(position.asset).fillna(0)
-    reduce_value.index = position.index
-    position.algo_value_in_btc -= reduce_value
-    position['algo_value'] = position.algo_value_in_btc / position.asset_price_in_btc
-
-    # algo max value
-    position['algo_max_value_in_btc'] = df['weight_btc'].groupby(df.symbol).sum()
-    position['algo_max_value'] = position.algo_max_value_in_btc / position.asset_price_in_btc
-
-    # fixed value
-    position['fixed_value'] = pd.Series(fixed_position_in_symbol).reindex(all_symbols).fillna(0)
-    position['fixed_value_in_btc'] = position.fixed_value * position.asset_price_in_btc
-
-    # target value
-    position['target_value'] = position.algo_value + position.fixed_value
-    position['target_value_in_btc'] = position.target_value * position.asset_price_in_btc
-
-    # difference
-    position['diff_value'] = position.target_value - position.value
-    position['diff_value_in_btc'] = position.diff_value * position.asset_price_in_btc
-
-    position['signal'] = df.latest_signal.astype(float).groupby(df.symbol).mean().reindex(all_symbols).fillna(0)
-    position['price'] = position.index.map(lambda s: list_select(tickers, 'symbol', s)['price'])
-
-
-    # verify diff_value
-    def get_filters(exinfo, symbol):
-      filters = list_select(exinfo['symbols'], 'symbol', symbol)['filters']
-      min_lot_size = list_select(filters, 'filterType', 'LOT_SIZE')['minQty']
-      step_size = list_select(filters, 'filterType', 'LOT_SIZE')['stepSize']
-      min_notional = list_select(filters, 'filterType', 'MIN_NOTIONAL')['minNotional']
-      return {
-          'min_lot_size': min_lot_size,
-          'step_size': step_size,
-          'min_notional': min_notional,
-      }
-
-    filters = pd.DataFrame({s: get_filters(exinfo, s) for s in position.index}).transpose().astype(float)
-
-    min_notional = filters.min_notional
-    minimum_lot_size = filters.min_lot_size
-    step_size = filters.step_size
-
-    # rebalance filter:
-    diff = position['diff_value']
-    diff = diff * (((position.diff_value / position.algo_max_value).abs() > rebalance_threshold) | position.algo_max_value.isnull())
-
-    # step size filter
-    diff = round((diff / step_size).astype(int) * step_size, 9)
-
-    # minimum lot filter
-    diff[diff.abs() < minimum_lot_size] = 0
-
-    # minimum notional filter
-    diff[diff.abs() * position.price.astype(float) < min_notional] = 0
-
-    position['final_diff_value'] = diff
-    position['final_diff_value_in_btc'] = diff * position.asset_price_in_btc
-
-    return position
 
 
   def execute_trades(self, delta_size, mode='TEST'):
