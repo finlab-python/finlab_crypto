@@ -26,7 +26,9 @@ setuptools.setup(
          "Programming Language :: Python :: 3.4",
          "Programming Language :: Python :: 3.5",
          "Programming Language :: Python :: 3.6",
-         "License :: OSI Approved :: MIT License",
+         "Programming Language :: Python :: 3.7",
+         "Programming Language :: Python :: 3.8",
+         "License :: OSI Approved :: GPL-3",
          "Operating System :: OS Independent",
      ],
  )
