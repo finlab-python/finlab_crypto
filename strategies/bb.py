@@ -4,7 +4,7 @@ import pandas as pd
 from finlab_crypto.strategy import Strategy
 
 @Strategy(window=14, nstd=2)
-def bb_strategy(ohlcv, combination=False):
+def bb_strategy(ohlcv):
   
   window = bb_strategy.window
   nstd = bb_strategy.nstd

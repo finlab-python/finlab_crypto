@@ -1,4 +1,4 @@
-import sys  
+import sys
 import math
 import scipy
 import numpy as np
@@ -14,7 +14,7 @@ def wma(price, n):
 # Highpass filter by John F. Ehlers, converted by DdlV
 def highpass(Data, n=48):
   a	= (0.707*2*math.pi) / n
-  
+
   alpha1 = (math.cos(a)+math.sin(a)-1)/math.cos(a);
   b	= 1-alpha1/2
   c	= 1-alpha1
@@ -22,7 +22,7 @@ def highpass(Data, n=48):
   ret = [0] * len(Data)
   for i in range(2, len(Data)):
     ret[i] = b*b*(Data.iloc[i]-2*Data[i-1]+Data.iloc[i-2])+2*c*ret[i-1]-c*c*ret[i-2]
-    
+
   return pd.Series(ret, index=Data.index)
 
 # lowpass filter
@@ -65,6 +65,7 @@ def detrend(price, n):
   return price - highpass(price, n)
 
 def linear_reg(price, n):
+  import talib
   return talib.LINEARREG(price, timeperiod=n)
 
 trends = {

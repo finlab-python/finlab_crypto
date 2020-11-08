@@ -2,10 +2,13 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from . import crawler
 from .strategy import Strategy
+from .strategy import Filter
 
 import vectorbt as vbt
 import sys
 import os
+
+__version__ = '0.1.17'
 
 
 # set default fees and slippage

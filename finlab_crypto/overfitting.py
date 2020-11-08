@@ -218,7 +218,7 @@ def CSCV(
     dom_df.index = y
     # visually, non_optimized curve above optimized curve indicates good
     # backtest with low overfitting.
-    dom_df["SD2"] = dom_df.non_optimized_OOS - dom_df.optimized_IS
+    dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
     
 
     pbox = {

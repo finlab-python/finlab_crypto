@@ -1,14 +1,83 @@
 # A backtesting framework for crytpo currency
 
 ## Todo
-* add portfolio backtest
+* comments in online.py
+* add batch backtesting
+* support shorting asset
+* more tests
 
 ## Updates
+Version 0.1.17
+* fix error for latest_signal asset_btc_value
+* add unittest for latest_signal
+
+Version 0.1.16
+* fix web page error
+* fix error for zero orders
+
+Version 0.1.15
+* fix web page error
+
+Version 0.1.14
+* refine render_html function
+
+Version 0.1.13
+* refine display html for TradingPortfolio
+
+Version 0.1.12
+* add delay when portfolio backtesting
+* fix colab compatability
+* improve interface of TradingPortfolio
+
+Version 0.1.11
+* fix portfolio backtest error
+* add last date equity for backtest
+
+Version 0.1.10
+* add portfolio backtest
+* rename online.py functions
+* refactor error tolerance of different position in online.py functions
+* set usdt to excluded asset when calculate position size
+
+Version 0.1.9
+* set 'filters' as an optional argument on TradingMethod
+* set plot range dynamically
+* portfolio backtest
+
+Version 0.1.8
+* fix talib parameter type incompatable issue
+
+Version 0.1.7
+* fix talib parameter type incompatable issue
+
+Version 0.1.6
+* fix talib-binary compatable issue using talib_strategy or talib_filter
+
+Version 0.1.5
+* add filters to online.py
+* add lambda argument options to talib_filter
+* move talib_filter to finlab_crypto package
+
+Version 0.1.4
+* fix talib filter and strategy pandas import error
+* fix talib import error in indicators, talib_strategy, and talib_filter
+
+Version 0.1.3
+* remove progress bar when only single strategy is backtested
+* adjust online portfolio to support leaverge
+* new theme for overfitting plots
+* fix online order with zero order amount
+* fix SD2 for overfitting plots
+
+Version 0.1.2
+* fix strategy variables
+
 Version 0.1.1
 * fix talib error
 * add filters folder
 * add excluded assets when sync portfolio
 * add filter folder to setup
+* fix variable eval failure
 
 Version 0.1.0
 * add filter interface
