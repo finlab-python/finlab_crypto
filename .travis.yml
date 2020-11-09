@@ -7,9 +7,8 @@ install:
   - pip install coverage
 
 # command to run tests
-# coverage run -m unittest tests/online_test.py
 script:
- - python -m unittest discover --pattern *_test.py
+ - coverage run -m unittest discover --pattern *_test.py
 
 after_success:
  - bash <(curl -s https://codecov.io/bash)
