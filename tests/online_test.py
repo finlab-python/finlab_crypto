@@ -1,5 +1,6 @@
 import unittest
 import warnings
+import finlab_crypto
 from finlab_crypto.strategy import Strategy
 from finlab_crypto.indicators import trends
 from finlab_crypto.online import TradingPortfolio, render_html
@@ -17,6 +18,8 @@ warnings.filterwarnings(
 class TestOnlineMethods(unittest.TestCase):
 
     def setUp(self):
+
+        finlab_crypto.setup()
 
         @Strategy(name='sma', n1=20, n2=40)
         def trend_strategy(ohlcv):
@@ -47,7 +50,7 @@ class TestOnlineMethods(unittest.TestCase):
         from finlab_crypto.online import TradingMethod
 
         tm1 = TradingMethod(
-            symbols=['ADABTC', 'LINKBTC', 'ETHBTC', 'VETBTC', 'ADAUSDT'],
+            symbols=['ADABTC', 'VETBTC', 'ADAUSDT'],
             freq='4h',
             lookback=1000,
             strategy=trend_strategy,
@@ -95,7 +98,7 @@ class TestOnlineMethods(unittest.TestCase):
                 ret[key] = df.loc[:time]
             return ret
 
-        dates = self.ohlcvs[('ADABTC', '4h')]['2019-01-01':'2019-01-5'].index
+        dates = self.ohlcvs[('ADABTC', '4h')]['2019-01-01':'2019-01-3'].index
 
         for d1, d2 in zip(dates, dates[1:]):
 

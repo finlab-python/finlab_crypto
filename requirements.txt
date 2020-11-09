@@ -4,4 +4,5 @@ bitmex==0.2.2
 pyecharts==1.7.1
 vectorbt==0.12
 statsmodels==0.10.2
-tqdm==4.41.1
+tqdm>=4.41.1
+seaborn>=0.11.0

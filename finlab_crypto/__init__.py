@@ -30,8 +30,9 @@ def setup_colab():
     print('| Google Drive not connected!  ')
     print('|------------------------------')
     print('|')
-    print('| Please connect google drive and rerun finlab.setup_colab_env')
-    print('| *  Files --> Mount Drive --> Connect to google drive')
+    print('| Please connect google drive:')
+    from google.colab import drive
+    drive.mount('/content/drive')
     return
 
 

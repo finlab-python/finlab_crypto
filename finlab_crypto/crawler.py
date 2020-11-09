@@ -26,6 +26,20 @@ def minutes_of_new_data(symbol, kline_size, data, source, client):
     return old, new
 
 def get_all_binance(symbol, kline_size, save=True, client=Client()):
+    """Getting histrical price data through binance api
+
+    Original code from: https://medium.com/swlh/retrieving-full-historical-data-for-every-cryptocurrency-on-binance-bitmex-using-the-python-apis-27b47fd8137f
+
+    Parameters:
+    symbol (str): trading pair (ex: BTCUSDT)
+    kline_size (str): frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
+    save (bool): save the results in ./history/ to improve the retreive waiting time
+    client (Binance.Client) (optional): Binance Client object
+
+    Returns:
+    pd.DataFrame: OHLCV data for all
+
+    """
     filename = 'history/%s-%s-data.csv' % (symbol, kline_size)
     if os.path.isfile(filename): data_df = pd.read_csv(filename)
     else: data_df = pd.DataFrame()
@@ -68,8 +82,24 @@ def get_nbars_binance(symbol, interval, nbars, client):
   return data
 
 
-def get_all_bitmex(symbol, kline_size, save = True):
-    bitmex_client = bitmex(test=False, api_key=bitmex_api_key, api_secret=bitmex_api_secret)
+def get_all_bitmex(symbol, kline_size, save = True, client=None):
+    """Getting histrical price data through bitmex api
+
+    Original code from: https://medium.com/swlh/retrieving-full-historical-data-for-every-cryptocurrency-on-binance-bitmex-using-the-python-apis-27b47fd8137f
+
+    Parameters:
+    symbol (str): trading pair (ex: BTCUSDT)
+    kline_size (str): frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
+    save (bool): save the results in ./history/ to improve the retreive waiting time
+    client (Binance.Client) (optional): Binance Client object
+    Returns:
+    pd.DataFrame: OHLCV data for all
+
+    """
+    if client is None:
+        return pd.DataFrame()
+
+    bitmex_client = client
     filename = 'history/%s-%s-data.csv' % (symbol, kline_size)
     if os.path.isfile(filename): data_df = pd.read_csv(filename)
     else: data_df = pd.DataFrame()
@@ -96,6 +126,9 @@ def get_all_bitmex(symbol, kline_size, save = True):
 
 
 class GlassnodeClient:
+  """
+  Getting data from glassnode
+  """
 
   def __init__(self):
     self._api_key = ''
