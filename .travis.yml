@@ -1,15 +1,19 @@
 language: python
 python:
   - "3.7"
-  - "3.8"
 # command to install dependencies
 install:
   - pip install -r requirements.txt
+  - pip install coverage
 
 # command to run tests
-#coverage run -m unittest tests/online_test.py
+# coverage run -m unittest tests/online_test.py
 script:
- - python -m unittest tests/online_test.py -v
+ - python -m unittest discover --pattern *_test.py
+
+after_success:
+ - bash <(curl -s https://codecov.io/bash)
+
 notifications:
   email: 
     - koreal6803@gmail.com

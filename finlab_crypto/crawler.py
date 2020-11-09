@@ -57,7 +57,7 @@ def get_all_binance(symbol, kline_size, save=True, client=Client()):
     else: data_df = data
     data_df.set_index('timestamp', inplace=True)
     data_df = data_df[~data_df.index.duplicated(keep='last')]
-    if save: data_df.to_csv(filename)
+    if save and os.path.exists('./history'): data_df.to_csv(filename)
     print('All caught up..!')
     data_df.index = pd.to_datetime(data_df.index, utc=True)
     data_df = data_df[~data_df.index.duplicated(keep='last')]
@@ -119,7 +119,7 @@ def get_all_bitmex(symbol, kline_size, save = True, client=None):
     data_df.set_index('timestamp', inplace=True)
     data_df = data_df[~data_df.index.duplicated(keep='last')]
 
-    if save and rounds > 0: data_df.to_csv(filename)
+    if save and rounds > 0 and os.path.exists('./history'): data_df.to_csv(filename)
     print('All caught up..!')
     data_df.index = pd.to_datetime(data_df.index, utc=True)
     return data_df.astype(float)

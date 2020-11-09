@@ -1,5 +1,57 @@
-# A backtesting framework for crytpo currency
+# FinLab Crypto
+[![Build Status](https://travis-ci.com/finlab-python/finlab_crypto.svg?branch=master)](https://travis-ci.com/finlab-python/finlab_crypto) [![PyPI version](https://badge.fury.io/py/finlab-crypto.svg)](https://badge.fury.io/py/finlab-crypto) [![codecov](https://codecov.io/gh/finlab-python/finlab_crypto/branch/master/graph/badge.svg?token=POS648UJ10)](https://codecov.io/gh/finlab-python/finlab_crypto)
+A backtest and verification framework for cryptocurrency.
+## Key Features
+* Pandas vectorize backtest
+* Talib wrapper to composite strategies easily
+* Backtest visualization and analysis (uses vectorbt and pyecharts as backend)
+* Analaysis the probability of overfitting using CSCV (combinatorially symmetric cross validation )
+* Easy to deploy strategies on google cloud function
+* Colab and Jupyter compatable
+## Installation
+```
+pip install finlab_crypto
+```
+## Usage
+### Setup Research Environment (Recommend)
+Create directory `./history/` for saving historical data. If Colab notebook is detected, it creates `GoogleDrive/crypto_workspace/history` and link the folder to `./history/`.
+``` python
+import finlab_crypto
+finlab_crypto.setup()
+```
+### Get Historical Price
+``` python
+ohlcv = finlab_crypto.crawler.get_all_binance('BTCUSDT', '4h')
+ohlcv.head()
+```
+### Trading Strategy
+``` python
+@finlab_crypto.Strategy(n1=20, n2=60)
+def sma_strategy(ohlcv):
+  n1 = sma_strategy.n1
+  n2 = sma_strategy.n2
+  
+  sma1 = ohlcv.close.rolling(int(n1)).mean()
+  sma2 = ohlcv.close.rolling(int(n2)).mean()
+  return (sma1 > sma2), (sma1 < sma2)
+```
+### Backtest
+``` python
+# default fee and slipagge are 0.1% and 0.1%
 
+vars =  {'n1': 20, 'n2': 60}
+portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
+```
+
+### Optimization
+``` python
+import numpy as np
+vars = {
+  'n1': np.arange(10, 100, 5), 
+  'n2': np.arange(10, 100, 5)
+}
+portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
+```
 
 ## Todo
 * comments in online.py

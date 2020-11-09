@@ -33,8 +33,6 @@ def setup_colab():
     print('| Please connect google drive:')
     from google.colab import drive
     drive.mount('/content/drive')
-    return
-
 
   # ln -s var
   def ln_dir(path):
@@ -43,11 +41,11 @@ def setup_colab():
         os.symlink(path, dir)
 
   check_and_create_dir('/content/drive/My Drive/crypto_workspace')
-  check_and_create_dir('/content/drive/My Drive/crypto_workspace/strategies')
+  # check_and_create_dir('/content/drive/My Drive/crypto_workspace/strategies')
   check_and_create_dir('/content/drive/My Drive/crypto_workspace/history')
-  check_and_create_dir('/content/drive/My Drive/crypto_workspace/filters')
-  ln_dir("/content/drive/My Drive/crypto_workspace/strategies")
-  ln_dir("/content/drive/My Drive/crypto_workspace/filters")
+  # check_and_create_dir('/content/drive/My Drive/crypto_workspace/filters')
+  # ln_dir("/content/drive/My Drive/crypto_workspace/strategies")
+  # ln_dir("/content/drive/My Drive/crypto_workspace/filters")
   ln_dir("/content/drive/My Drive/crypto_workspace/history")
 
 def setup():
@@ -55,7 +53,7 @@ def setup():
     if IN_COLAB:
         setup_colab()
     else:
-        check_and_create_dir('strategies')
+        # check_and_create_dir('strategies')
+        # check_and_create_dir('filters')
         check_and_create_dir('history')
-        check_and_create_dir('filters')
 
