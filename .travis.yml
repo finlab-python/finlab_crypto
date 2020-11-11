@@ -5,6 +5,7 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install coverage
+  - pip install pdoc3==0.9.1
 
 # command to run tests
 script:
@@ -12,7 +13,18 @@ script:
 
 after_success:
  - bash <(curl -s https://codecov.io/bash)
+ - pdoc --html finlab_crypto
 
 notifications:
   email: 
     - koreal6803@gmail.com
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  local_dir: html/finlab_crypto
+  github-token: $GITHUB_TOKEN
+  keep-history: false
+  target_branch: gh-pages
+  on:
+    branch: master

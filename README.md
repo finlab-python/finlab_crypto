@@ -1,6 +1,8 @@
 # FinLab Crypto
 [![Build Status](https://travis-ci.com/finlab-python/finlab_crypto.svg?branch=master)](https://travis-ci.com/finlab-python/finlab_crypto) [![PyPI version](https://badge.fury.io/py/finlab-crypto.svg)](https://badge.fury.io/py/finlab-crypto) [![codecov](https://codecov.io/gh/finlab-python/finlab_crypto/branch/master/graph/badge.svg?token=POS648UJ10)](https://codecov.io/gh/finlab-python/finlab_crypto)
-A backtest and verification framework for cryptocurrency.
+
+A backtest and verification framework for cryptocurrency
+
 ## Key Features
 * Pandas vectorize backtest
 * Talib wrapper to composite strategies easily
@@ -8,10 +10,15 @@ A backtest and verification framework for cryptocurrency.
 * Analaysis the probability of overfitting using CSCV (combinatorially symmetric cross validation )
 * Easy to deploy strategies on google cloud function
 * Colab and Jupyter compatable
+
 ## Installation
 ```
 pip install finlab_crypto
 ```
+
+## Colab Example
+ * [basic example for backtesting and optimization ![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg) ](https://colab.research.google.com/drive/1l1hylhFY-tzMV1Jca95mv_32hXe0L0M_?usp=sharing)
+
 ## Usage
 ### Setup Research Environment (Recommend)
 Create directory `./history/` for saving historical data. If Colab notebook is detected, it creates `GoogleDrive/crypto_workspace/history` and link the folder to `./history/`.
