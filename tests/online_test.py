@@ -106,6 +106,7 @@ class TestOnlineMethods(unittest.TestCase):
             signal2 = self.tp.get_latest_signals(ohlcvs_temp)
             position, position_btc, new_orders = self.tp.calculate_position_size(signal2)
             execute_order_result = self.tp.execute_orders(new_orders, mode='TEST')
+            render_html(signal2, position, position_btc, new_orders, execute_order_result)
 
             (signal1.latest_signal & signal2.latest_signal).astype(int)
 
@@ -154,5 +155,14 @@ class TestOnlineMethods(unittest.TestCase):
         self.assertEqual(
                 ((~position_btc.index.isin(all_symbols)) | (position_btc.index == 'USDT')
                  == position_btc.excluded).all(), True)
+
+    def test_get_ohlcvs(self):
+        ohlcvs = self.tp.get_ohlcvs()
+        self.tp.status(ohlcvs)
+        self.assertEqual(len(ohlcvs) != 0, True)
+
+    def test_portfolio_backtest(self):
+        result = self.tp.portfolio_backtest(self.ohlcvs, '4h')
+        self.assertEqual(len(result) != 0, True)
 
 

@@ -9,6 +9,9 @@ import time
 import json
 import os
 
+import matplotlib
+matplotlib.use('Agg')
+
 warnings.filterwarnings(
     'ignore',
     category=ResourceWarning,
@@ -23,8 +26,8 @@ class TestOverfittingMethods(unittest.TestCase):
     def test_overfitting(self):
 
         nstrategy = 10
-        nreturns = 4000
-        returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=1000) for i in range(nstrategy)})
+        nreturns = 4001
+        returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=nreturns) for i in range(nstrategy)})
         returns['s1'] += 0.02
 
         results = overfitting.CSCV(returns, S=10, plot=False)
@@ -32,8 +35,8 @@ class TestOverfittingMethods(unittest.TestCase):
         self.assertEqual(results['pbo_test'], 0)
 
 
-        returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=1000) for i in range(nstrategy)})
+        returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=nreturns) for i in range(nstrategy)})
 
-        results = overfitting.CSCV(returns, S=10, plot=False)
+        results = overfitting.CSCV(returns, S=10, plot=True)
 
         self.assertEqual(results['pbo_test'] > 0, True)
