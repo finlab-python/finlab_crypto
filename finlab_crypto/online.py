@@ -428,7 +428,7 @@ class TradingPortfolio():
       fig = px.line()
       for sname, s in df.items():
         fig.add_scatter(x=s.index, y=s.values, name=sname) # Not what is desired - need a line
-      fig.show()
+      # fig.show()
 
     @backtest_panel.capture(clear_output=True)
     def backtest(_):
