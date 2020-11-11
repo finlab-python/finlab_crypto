@@ -2,6 +2,7 @@ import sys
 import plotly.express as px
 import pandas as pd
 import datetime
+from IPython.display import display
 from binance.enums import *
 from finlab_crypto.crawler import get_nbars_binance, get_all_binance
 from binance.client import Client
@@ -501,11 +502,11 @@ class TradingPortfolio():
     position.columns = assets
     position = position.groupby(position.columns, axis=1).sum()
     quote_position = quote_position.groupby(quote_position.columns, axis=1).sum()
-    
+
     all_symbols = list(set(quote_position.columns) | set(position.columns) | set(self._margins.keys()))
     if 'USDT' not in all_symbols:
         all_symbols.append('USDT')
-    
+
     position = position.reindex(all_symbols, axis=1).fillna(0) + quote_position.reindex(all_symbols, axis=1).fillna(0)
 
     ohlcv_usdt = {a:get_all_binance(a+'USDT', min_freq) for a in position.columns if a != 'USDT'}
