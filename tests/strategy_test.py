@@ -10,6 +10,9 @@ import time
 import json
 import os
 
+import matplotlib
+matplotlib.use('Agg')
+
 warnings.filterwarnings(
     'ignore',
     category=ResourceWarning,
@@ -27,7 +30,7 @@ class TestStrategyMethods(unittest.TestCase):
             'high': np.random.normal(1, 0.02, size=100).clip(0, None),
             'low': np.random.normal(1, 0.02, size=100).clip(0, None),
             'volume': np.random.normal(1, 0.02, size=100).clip(0, None)
-            })
+            }, index=pd.date_range('2000-01-01', periods=100))
 
     def test_strategy_without_params(self):
         @Strategy()

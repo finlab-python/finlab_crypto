@@ -74,9 +74,6 @@ class TestOnlineMethods(unittest.TestCase):
             name='btc-trend-strategy-2020-10-31',
         )
 
-        if 'BINANCE_KEY' not in os.environ or 'BINANCE_SECRET' not in os.environ:
-            print('please set BINANCE_KEY and BINANCE_SECRET as environment variables')
-            exit()
         key = os.environ.get('BINANCE_KEY')
         secret = os.environ.get('BINANCE_SECRET')
 
