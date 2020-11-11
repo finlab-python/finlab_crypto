@@ -8,7 +8,7 @@ import vectorbt as vbt
 import sys
 import os
 
-__version__ = '0.1.17'
+__version__ = '0.1.18'
 
 
 # set default fees and slippage

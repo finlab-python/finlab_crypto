@@ -118,6 +118,7 @@ def Strategy(**default_parameters):
                     filter_df.columns = filter_df.columns.set_names([fname + '_' + n for n in filter_df.columns.names])
                     entries = filter_df.vbt.tile(entries.shape[1]).vbt & entries.vbt.repeat(filter_df.shape[1]).vbt
                     exits = exits.vbt.repeat(filter_df.shape[1])
+                    exits.columns = entries.columns
 
                     # merge figures
                     if filter_figures is not None:

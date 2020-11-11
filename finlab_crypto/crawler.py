@@ -65,7 +65,7 @@ def get_all_binance(symbol, kline_size, save=True, client=Client()):
 
 
 def get_nbars_binance(symbol, interval, nbars, client):
-  interval_to_seconds = lambda interval: int(interval[0]) * {'m': 60, 'h': 60*60, 'd': 60*60*24}[interval[1]]
+  interval_to_seconds = lambda interval: int(interval[:-1]) * {'m': 60, 'h': 60*60, 'd': 60*60*24}[interval[-1]]
 
   # calculate crawl time interval
   now = datetime.now(tz=timezone.utc)

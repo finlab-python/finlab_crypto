@@ -80,13 +80,15 @@ class TradingPortfolio():
           symbol_lookbacks[(a, method.freq)] = method.lookback
 
     # add quote asset historical data
+    addition = {}
     for (symbol, freq), lookback in symbol_lookbacks.items():
       base_asset = self.ticker_info.get_base_asset(symbol)
       if base_asset != self.quote_asset:
         new_symbol = base_asset + self.quote_asset
-        symbol_lookbacks[(new_symbol, freq)] = lookback
+        addition[(new_symbol, freq)] = lookback
 
-    return symbol_lookbacks
+
+    return {**symbol_lookbacks, **addition}
 
   def get_ohlcvs(self):
 
@@ -471,9 +473,10 @@ class TradingPortfolio():
     quote_substract = {}
     for index, value in results.transpose().items():
       position[value.loc['name']+'|'+ value.symbol + '|' + value.freq] = (value.portfolio.cash == 0).shift(delay).ffill() * value.weight
-    position = pd.DataFrame(position)
+    position = pd.DataFrame(position).resample(min_freq).last().ffill()
     position.columns = position.columns.str.split('|').str[1]
     position = position.ffill().fillna(0)
+    position = position.groupby(position.columns, axis=1).sum()
 
     # find quote assets
     quote_asset_col = []
@@ -496,7 +499,13 @@ class TradingPortfolio():
           assets[i] = a[:-len(q)]
 
     position.columns = assets
+    position = position.groupby(position.columns, axis=1).sum()
+    quote_position = quote_position.groupby(quote_position.columns, axis=1).sum()
+    
     all_symbols = list(set(quote_position.columns) | set(position.columns) | set(self._margins.keys()))
+    if 'USDT' not in all_symbols:
+        all_symbols.append('USDT')
+    
     position = position.reindex(all_symbols, axis=1).fillna(0) + quote_position.reindex(all_symbols, axis=1).fillna(0)
 
     ohlcv_usdt = {a:get_all_binance(a+'USDT', min_freq) for a in position.columns if a != 'USDT'}
@@ -507,7 +516,7 @@ class TradingPortfolio():
         initial_margin_sum_btc += self.ticker_info.get_asset_price_in_btc(a) * w
 
     # remove negative position
-    negative_position = ((position < 0) * position).drop('USDT', axis=1).sum(axis=1)
+    negative_position = ((position < 0) * position).drop('USDT', axis=1, errors='ignore').sum(axis=1)
     pusdt = position['USDT'].copy()
     position = position.clip(0, None)
     position.USDT = pusdt + negative_position

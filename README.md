@@ -60,6 +60,11 @@ portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 * more tests
 
 ## Updates
+Version 0.1.18
+* fix(crawler): get_n_bars
+* fix(TradingPortfolio): get_ohlcv
+* fix(TradingPortfolio): portfolio_backtest
+
 Version 0.1.17
 * fix error for latest_signal asset_btc_value
 * add unittest for latest_signal
