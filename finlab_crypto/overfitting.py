@@ -60,7 +60,6 @@ def CSCV(
         used as prob. of OOS Loss calculation cutoff. For Sharpe ratio,
         this should be 0 to indicate probabilty of loss.
     n_jobs:
-        if greater than 1 then enable parallel mode
     hist:
         Default False, whether to plot histogram for rank of logits.
         Some problems exist when S >= 10. Need to look at why numpy /
@@ -192,7 +191,7 @@ def CSCV(
     pbo_test = np.sum(phi)
 
     print('probability of backtest overfitting', pbo_test)
-    
+
     # performance degradation
     #R_n_star = np.array([R[i][rn[i]] for i in range(len(R))])
     #R_bar_n_star = np.array([R_bar[i][rn[i]] for i in range(len(R_bar))])
@@ -219,7 +218,7 @@ def CSCV(
     # visually, non_optimized curve above optimized curve indicates good
     # backtest with low overfitting.
     dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
-    
+
 
     pbox = {
         'pbo_test': pbo_test,
