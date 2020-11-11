@@ -60,6 +60,18 @@ vars = {
 portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 ```
 
+### Testing
+
+The following script runs all testcases locally. Before running testcases, [creating an isolated python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended. To test crawler functions, please provide Binance API's key and secret by setting environment variables `BINANCE_KEY` and `BINANCE_SECRET`, respectively.
+
+``` bash
+git clone https://github.com/finlab-python/finlab_crypto.git
+cd finlab_crypto
+pip install requirements.txt
+pip install coverage
+BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage run -m unittest discover --pattern *_test.py
+```
+
 ## Todo
 * comments in online.py
 * add batch backtesting
