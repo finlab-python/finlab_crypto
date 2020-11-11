@@ -2,7 +2,6 @@ import pandas as pd
 import math
 import os.path
 import time
-from bitmex import bitmex
 from binance.client import Client
 from datetime import timedelta, datetime, timezone
 from dateutil import parser
