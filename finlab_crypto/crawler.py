@@ -19,9 +19,9 @@ batch_size = 750
 def minutes_of_new_data(symbol, kline_size, data, source, client):
     if len(data) > 0:  old = parser.parse(data["timestamp"].iloc[-1])
     elif source == "binance": old = datetime.strptime('1 Jan 2017', '%d %b %Y')
-    elif source == "bitmex": old = bitmex_client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=1, reverse=False).result()[0][0]['timestamp']
+    elif source == "bitmex": old = client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=1, reverse=False).result()[0][0]['timestamp']
     if source == "binance": new = pd.to_datetime(client.get_klines(symbol=symbol, interval=kline_size)[-1][0], unit='ms')
-    if source == "bitmex": new = bitmex_client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=1, reverse=True).result()[0][0]['timestamp']
+    if source == "bitmex": new = client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=1, reverse=True).result()[0][0]['timestamp']
     return old, new
 
 def get_all_binance(symbol, kline_size, save=True, client=Client()):
@@ -78,6 +78,7 @@ def get_nbars_binance(symbol, interval, nbars, client):
                'volume', 'close_time', 'quote_av', 'trades',
                'tb_base_av', 'tb_quote_av', 'ignore' ], dtype=float)
   data.index = pd.to_datetime(data['timestamp'], unit='ms')
+  data.index = data.index.tz_localize(timezone.utc)
   return data
 
 
@@ -102,7 +103,7 @@ def get_all_bitmex(symbol, kline_size, save = True, client=None):
     filename = 'history/%s-%s-data.csv' % (symbol, kline_size)
     if os.path.isfile(filename): data_df = pd.read_csv(filename)
     else: data_df = pd.DataFrame()
-    oldest_point, newest_point = minutes_of_new_data(symbol, kline_size, data_df, source = "bitmex")
+    oldest_point, newest_point = minutes_of_new_data(symbol, kline_size, data_df, source = "bitmex", client=client)
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
     rounds = math.ceil(available_data / batch_size)
@@ -121,7 +122,7 @@ def get_all_bitmex(symbol, kline_size, save = True, client=None):
     if save and rounds > 0 and os.path.exists('./history'): data_df.to_csv(filename)
     print('All caught up..!')
     data_df.index = pd.to_datetime(data_df.index, utc=True)
-    return data_df.astype(float)
+    return data_df.astype(float, errors='ignore')
 
 
 class GlassnodeClient:
