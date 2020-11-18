@@ -30,13 +30,17 @@ class TestOverfittingMethods(unittest.TestCase):
         returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=nreturns) for i in range(nstrategy)})
         returns['s1'] += 0.02
 
-        results = overfitting.CSCV(returns, S=10, plot=False)
+        cscv = overfitting.CSCV()
+        cscv.add_daily_returns(returns)
+        results = cscv.estimate_overfitting(plot=True)
 
         self.assertEqual(results['pbo_test'], 0)
 
 
         returns = pd.DataFrame({'s' + str(i): np.random.normal(0, 0.02, size=nreturns) for i in range(nstrategy)})
 
-        results = overfitting.CSCV(returns, S=10, plot=True)
+        cscv = overfitting.CSCV()
+        cscv.add_daily_returns(returns)
+        results = cscv.estimate_overfitting(plot=True)
 
         self.assertEqual(results['pbo_test'] > 0, True)

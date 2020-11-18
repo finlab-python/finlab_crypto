@@ -150,7 +150,7 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data):
     display(HTML(filename="render.html"))
     return HTML(filename="render.html")
 
-def plot_combination(portfolio, metric='final_equity'):
+def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
 
     sns.set()
     sns.set_style("whitegrid")
@@ -204,10 +204,10 @@ def plot_combination(portfolio, metric='final_equity'):
         axes[i].title.set_text(item)
         results.plot(ax=axes[i])
 
-    def metric(x):
-        return x.mean(axis=0)
-    results = overfitting.CSCV(portfolio.daily_returns.dropna(),
-                               S=10, metric_func=metric, plot=False)
+    if cscv_result is None:
+        return
+
+    results = cscv_result
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5),
                              sharey=False, sharex=False, constrained_layout=False)

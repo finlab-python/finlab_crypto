@@ -1,259 +1,113 @@
 from statsmodels.distributions.empirical_distribution import ECDF
-import tqdm.notebook as tqdm
 import itertools as itr
-import scipy.stats as ss
-import scipy.special as spec
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-
-def sharp_ratio(x):
-  mean = x.mean(axis=0)
-  std = x.std(axis=0)
-  return (mean / std)[std != 0]
+import math
 
 
-def CSCV(
-    M,
-    S,
-    threshold=1,
-    metric_func=sharp_ratio,
-    plot=True,
-):
-    """
-    Based on http://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253
-    Features:
-    * training and test sets are of equal size, providing comparable accuracy
-    to both IS and OOS Sharpe ratios.
-    * CSCV is symmetric, decline in performance can only result from
-    overfitting, not arbitrary discrepancies between the training and test
-    sets.
-    * CSCV respects the time-dependence and other season-dependent features
-    present in the data.
-    * Results are deterministic, can be replicated.
-    * Dispersion in the distribution of logits conveys relevant info regarding
-    the robustness of the strategy selection process.
-    * Model-free, non-parametric. Logits distribution resembles the cumulative
-    Normal distribution if w_bar are close to uniform distribution (i.e. the
-    backtest appears to be information-less). Therefore, for good backtesting,
-    the distribution of logits will be centered in a significantly positive
-    value, and its tail will marginally cover the region of negative logit
-    values.
-    Limitations:
-    * CSCV is symmetric, for some strategies, K-fold CV might be better.
-    * Not suitable for time series with strong auto-correlation, especially
-    when S is large.
-    * Assumes all the sample statistics carry the same weight.
-    * Entirely possible that all the N strategy configs have high but similar
-    Sharpe ratios. Therefore, PBO may appear high, however, 'overfitting' here
-    is among many 'skilful' strategies.
-    Parameters:
-    M:
-        returns data, numpy or dataframe format.
-    S:
-        chuncks to devided M into, must be even number. Paper suggests setting
-        S = 16. See paper for details of choice of S.
-    metric_func:
-        evaluation function for returns data
-    threshold:
-        used as prob. of OOS Loss calculation cutoff. For Sharpe ratio,
-        this should be 0 to indicate probabilty of loss.
-    n_jobs:
-    hist:
-        Default False, whether to plot histogram for rank of logits.
-        Some problems exist when S >= 10. Need to look at why numpy /
-        matplotlib does it.
-    Returns:
-    PBO result in namedtuple, instance of PBO.
-    """
-    if S % 2 == 1:
-        raise ValueError(
-            "S must be an even integer, {:.1f} was given".format(S)
+class CSCV(object):
+
+    def __init__(self, n_bins=10, objective=lambda r: r.mean()):
+        self.objective = objective
+        self.n_bins = n_bins
+        self.bins_enumeration = [set(x) for x in itr.combinations(np.arange(10), 10 // 2)]
+
+        self.Rs = [pd.Series(dtype=float) for i in range(len(self.bins_enumeration))]
+        self.R_bars = [pd.Series(dtype=float) for i in range(len(self.bins_enumeration))]
+
+    def add_daily_returns(self, daily_returns):
+
+        bin_size = daily_returns.shape[0] // self.n_bins
+        bins = [daily_returns.iloc[i*bin_size: (i+1) * bin_size] for i in range(self.n_bins)]
+
+        for set_id, is_set in enumerate(self.bins_enumeration):
+            oos_set = set(range(10)) - is_set
+            is_returns = pd.concat([bins[i] for i in is_set])
+            oos_returns = pd.concat([bins[i] for i in oos_set])
+            R = self.objective(is_returns)
+            R_bar = self.objective(oos_returns)
+            self.Rs[set_id] = self.Rs[set_id].append(R)
+            self.R_bars[set_id] = self.R_bars[set_id].append(R_bar)
+
+    def estimate_overfitting(self, plot=False):
+
+        # calculate strategy performance in IS(R_df) and OOS(R_bar_df)
+        R_df = pd.DataFrame(self.Rs)
+        R_bar_df = pd.DataFrame(self.R_bars)
+
+        # calculate ranking of the strategies
+        R_rank_df = R_df.rank(axis=1, ascending=False, method='first')
+        R_bar_rank_df = R_bar_df.rank(axis=1, ascending=False, method='first')
+
+        # find the IS performance of th trategies that has the best ranking in IS
+        r_star_series = (R_df * (R_rank_df == 1)).unstack().dropna()
+        r_star_series = r_star_series[r_star_series != 0].sort_index(level=-1)
+
+        # find the OOS performance of the strategies that has the best ranking in IS
+        r_bar_star_series = (R_bar_df * (R_rank_df == 1)).unstack().dropna()
+        r_bar_star_series = r_bar_star_series[r_bar_star_series != 0].sort_index(level=-1)
+
+        # find the ranking of strategies which has the best ranking in IS
+        r_bar_rank_series = (R_bar_rank_df * (R_rank_df == 1)).unstack().dropna()
+        r_bar_rank_series = r_bar_rank_series[r_bar_rank_series != 0].sort_index(level=-1)
+
+        # probability of overfitting
+
+        # estimate logits of OOS rankings
+        logits = (1-((r_bar_rank_series)/(len(R_df.columns)+1))).map(lambda p: math.log(p/(1-p)))
+        prob = (logits < 0).sum() / len(logits)
+
+        # stochastic dominance
+
+        # caluclate
+        y = np.linspace(
+            min(r_bar_star_series), max(r_bar_star_series), endpoint=True, num=1000
         )
-    n_jobs = 1
-    n_jobs = int(n_jobs)
-    if n_jobs < 0:
-        n_jobs = max(1, ps.cpu_count(logical=False))
 
-    if isinstance(M, pd.DataFrame):
-        # conver to numpy values
-        print("Convert from DataFrame to numpy array.")
-        M = M.values
+        # build CDF performance of best candidate in IS
+        R_bar_n_star_cdf = ECDF(r_bar_star_series.values)
+        optimized = R_bar_n_star_cdf(y)
 
-    # Paper suggests T should be 2x the no. of observations used by investor
-    # to choose a model config, due to the fact that CSCV compares combinations
-    # of T/2 observations with their complements.
-    T, N = M.shape
-    residual = T % S
-    if residual != 0:
-        M = M[residual:]
-        T, N = M.shape
+        # build CDF performance of average candidate in IS
+        R_bar_mean_cdf = ECDF(R_bar_df.median(axis=1).values)
+        non_optimized = R_bar_mean_cdf(y)
 
-    sub_T = T // S
-
-    print("Total sample size: {:,d}, chunck size: {:,d}".format(T, sub_T))
-
-    # generate subsets, each of length sub_T
-    Ms = []
-    #Ms_values = []
-    for i in range(S):
-        start, end = i * sub_T, (i + 1) * sub_T
-        #Ms.append((i, M[start:end, :]))
-        Ms.append((i, start, end))
-        #Ms_values.append(M[start:end, :])
-    #Ms_values = np.array(Ms_values)
-
-    #if verbose:
-    print("No. of Chuncks: {:,d}".format(len(Ms)))
-
-    # generate combinations
-    Cs = [x for x in itr.combinations(Ms, S // 2)]
-
-    #if verbose:
-    print("No. of combinations = {:,d}".format(len(Cs)))
-
-    # Ms_index used to find J_bar (complementary OOS part)
-    Ms_index = set([x for x in range(len(Ms))])
-
-    get_sub_m = lambda i: M[Ms[i][1]: Ms[i][2], :]
-
-    # create J and J_bar
-    if n_jobs < 2:
-        #J = []
-        #J_bar = []
-        #R = []
-        #R_bar = []
-        rn = []
-        rn_bar = []
-        R_n_star = []
-        R_bar_mean = []
-        R_bar_n_star = []
-
-        for i in tqdm.tqdm(range(len(Cs))):
-            # make sure chucks are concatenated in their original order
-            order = [x for x, _, _ in Cs[i]]
-            sort_ind = sorted(order)
-
-            Cs_values = np.array([get_sub_m(j) for j in sort_ind])
-            # if verbose:
-            #     print('Cs index = {}, '.format(order), end='')
-            joined = np.concatenate(Cs_values)
-            #J.append(joined)
-            R = metric_func(joined)
-            R_rank = ss.rankdata(R)
-
-            # find Cs_bar
-            Cs_bar_index = list(sorted(Ms_index - set(order)))
-            Cs_values2 = np.array([get_sub_m(i) for i in Cs_bar_index])
-            # if verbose:
-            # print('Cs_bar_index = {}'.format(Cs_bar_index))
-            #J_bar.append(np.concatenate(Ms_values[Cs_bar_index, :]))
-            R_bar = metric_func(np.concatenate(Cs_values2))
-            R_bar_rank = ss.rankdata(R_bar)
-
-            best_rank_id = np.argmax(R_rank)
-            best_rank_oos = R_bar_rank[best_rank_id]
-
-            rn.append(best_rank_id)
-            rn_bar.append(best_rank_oos)
-            R_n_star.append(R[best_rank_id])
-            R_bar_n_star.append(R_bar[best_rank_id])
-            R_bar_mean.append(np.mean(R_bar))
+        #
+        dom_df = pd.DataFrame(
+            dict(optimized_IS=optimized, non_optimized_OOS=non_optimized)
+        , index=y)
+        dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
 
 
-        # compute matrices for J and J_bar, e.g. Sharpe ratio
-        #R = [metric_func(j) for j in J]
-        #R_bar = [metric_func(j) for j in J_bar]
+        ret = {
+            'pbo_test': (logits < 0).sum() / len(logits),
+            'logits': logits.to_list(),
+            'R_n_star': r_star_series.to_list(),
+            'R_bar_n_star': r_bar_star_series.to_list(),
+            'dom_df': dom_df,
+        }
 
-        # compute ranks of metrics
-        #R_rank = [ss.rankdata(x) for x in R]
-        #R_bar_rank = [ss.rankdata(x) for x in R_bar]
+        if plot:
+            # probability distribution
+            plt.title('Probability Distribution')
+            plt.hist(x=[l for l in ret['logits'] if l > -10000], bins='auto')
+            plt.xlabel('Logits')
+            plt.ylabel('Frequency')
+            plt.show()
 
-        # find highest metric, rn contains the index position of max value
-        # in each set of R (IS)
-        #rn = [np.argmax(r) for r in R_rank]
-        # use above index to find R_bar (OOS) in same index position
-        # i.e. the same config / setting
-        #rn_bar = [R_bar_rank[i][rn[i]] for i in range(len(R_bar_rank))]
+            # performance degradation
+            plt.title('Performance degradation')
+            plt.scatter(ret['R_n_star'], ret['R_bar_n_star'])
+            plt.xlabel('In-sample Performance')
+            plt.ylabel('Out-of-sample Performance')
 
-        # formula in paper used N+1 as the denominator for w_bar. For good reason
-        # to avoid 1.0 in w_bar which leads to inf in logits. Intuitively, just
-        # because all of the samples have outperformed one cannot be 100% sure.
-        w_bar = [float(r) / (N+1) for r in rn_bar]
-        # logit(.5) gives 0 so if w_bar value is equal to median logits is 0
-        logits = [spec.logit(w) for w in w_bar]
-    else:
-        pass
+            # first and second Stochastic dominance
+            plt.title('Stochastic dominance')
+            ret['dom_df'].plot(secondary_y=['SD2'])
+            plt.xlabel('Performance optimized vs non-optimized')
+            plt.ylabel('Frequency')
+            plt.show()
 
-    # prob of overfitting
-    phi = np.array([1.0 if lam <= 0 else 0.0 for lam in logits]) / len(Cs)
-    pbo_test = np.sum(phi)
-
-    print('probability of backtest overfitting', pbo_test)
-
-    # performance degradation
-    #R_n_star = np.array([R[i][rn[i]] for i in range(len(R))])
-    #R_bar_n_star = np.array([R_bar[i][rn[i]] for i in range(len(R_bar))])
-    lm = ss.linregress(x=R_n_star, y=R_bar_n_star)
-
-    prob_oos_loss = np.sum(
-        [1.0 if r < threshold else 0.0 for r in R_bar_n_star]
-    ) / len(R_bar_n_star)
-
-    # Stochastic dominance
-    y = np.linspace(
-        min(R_bar_n_star), max(R_bar_n_star), endpoint=True, num=1000
-    )
-    R_bar_n_star_cdf = ECDF(R_bar_n_star)
-    optimized = R_bar_n_star_cdf(y)
-
-    R_bar_cdf = ECDF(R_bar_mean)
-    non_optimized = R_bar_cdf(y)
-
-    dom_df = pd.DataFrame(
-        dict(optimized_IS=optimized, non_optimized_OOS=non_optimized)
-    )
-    dom_df.index = y
-    # visually, non_optimized curve above optimized curve indicates good
-    # backtest with low overfitting.
-    dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
-
-
-    pbox = {
-        'pbo_test': pbo_test,
-        'prob_oos_loss': prob_oos_loss,
-        'lm': lm,
-        'dom_df':dom_df,
-        'rn':rn,
-        'rn_bar': rn_bar,
-        'w_bar': w_bar,
-        'logits': logits,
-        'R_n_star':R_n_star,
-        'R_bar_n_star':R_bar_n_star,
-        'Ms': Ms
-    }
-
-    if plot:
-
-      # probability distribution
-      plt.title('Probability Distribution')
-      plt.hist(x=[l for l in pbox['logits'] if l > -10000], bins='auto')
-      plt.xlabel('Logits')
-      plt.ylabel('Frequency')
-      plt.show()
-
-      # performance degradation
-      plt.title('Performance degradation')
-      plt.scatter(pbox['R_n_star'], pbox['R_bar_n_star'])
-      plt.xlabel('In-sample Performance')
-      plt.ylabel('Out-of-sample Performance')
-
-      # first and second Stochastic dominance
-      plt.title('Stochastic dominance')
-      pbox['dom_df'].plot()
-      plt.xlabel('Performance optimized vs non-optimized')
-      plt.ylabel('Frequency')
-      plt.show()
-
-    return pbox
+        return ret

@@ -2,6 +2,7 @@ from finlab_crypto.utility import (enumerate_variables, enumerate_signal,
                                    stop_early, plot_combination, plot_strategy,
                                    variable_visualization, remove_pd_object
                                   )
+from finlab_crypto.overfitting import CSCV
 import copy
 import vectorbt as vbt
 import pandas as pd
@@ -139,7 +140,9 @@ def Strategy(**default_parameters):
             exits = exits.squeeze()
             return entries, exits
 
-        def backtest(self, ohlcv, variables=dict(), filters=dict(), plot=False, lookback=None, signals=False, side='long', **args):
+        def backtest(self, ohlcv, variables=dict(),
+                filters=dict(), plot=False, lookback=None,
+                signals=False, side='long', cscv_nbins=10, cscv_objective=lambda r:r.mean(), **args):
 
             variables_without_stop = copy.copy(variables)
 
@@ -169,8 +172,10 @@ def Strategy(**default_parameters):
             if side == 'long':
                 portfolio = vbt.Portfolio.from_signals(
                     ohlcv_lookback.close, entries.fillna(False), exits.fillna(False), **args)
+
             elif side == 'short':
                 raise Exception('Shorting is not support yet')
+
             else:
                 raise Exception("side should be 'long' or 'short'")
 
@@ -178,7 +183,14 @@ def Strategy(**default_parameters):
                 plot_strategy(ohlcv_lookback, entries, exits, portfolio ,fig_data)
 
             elif plot:
-                plot_combination(portfolio)
+
+                # perform CSCV algorithm
+                cscv = CSCV(n_bins=cscv_nbins, objective=cscv_objective)
+                cscv.add_daily_returns(portfolio.daily_returns)
+                cscv_result = cscv.estimate_overfitting(plot=False)
+
+                # plot results
+                plot_combination(portfolio, cscv_result)
                 plt.show()
                 variable_visualization(portfolio)
 
