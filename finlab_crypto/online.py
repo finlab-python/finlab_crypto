@@ -553,7 +553,7 @@ class TradingPortfolio():
     (s / s.cummax()).plot()
     plt.show()
 
-    return asset_return
+    return results
 
 def render_html(signals_df, rebalance_df, rebalance_df_in_btc, orders, order_results):
 
