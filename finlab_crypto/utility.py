@@ -32,7 +32,7 @@ def remove_pd_object(d):
 
 def enumerate_variables(variables):
 
-    if variables is None:
+    if len(variables) == 0:
         return []
 
     enumeration_name = []
@@ -90,13 +90,13 @@ def enumerate_signal(ohlcv, strategy, variables, ):
         entries.columns = columns
     return entries, exits, fig
 
-def stop_early(ohlcv, stop_type, stop_percentages, entries, exits):
+def stop_early(ohlcv, stop_type, stop_percentages, entries, exits, trailing=False):
 
     nrepeat = 1
 
     if stop_type == 'stoploss':
         stop_exits = entries.vbt.signals.generate_stop_loss_exits(
-            ohlcv.close, stop_percentages)
+            ohlcv.close, stop_percentages, trailing=trailing)
     elif stop_type == 'profit_targets':
         stop_exits = entries.vbt.signals.generate_take_profit_exits(
             ohlcv.close, stop_percentages)

@@ -85,66 +85,83 @@ def Strategy(**default_parameters):
         def show_parameters(self):
             print(self._variables)
 
-        def backtest(self, ohlcv, variables=None, filters=None, plot=False, lookback=None, signals=False, side='long', **args):
+        @staticmethod
+        def _enumerate_filters(ohlcv, filters):
+            ret = {}
+            for fname, f in filters.items():
 
-            if variables is None:
-                variables = {}
+                # get filter signals and figures
+                filter_df, filter_figures = f(ohlcv)
+                ret[fname] = (filter_df, filter_figures)
+            return ret
+
+        @staticmethod
+        def _add_filters(entries, exits, fig_data, filters):
+
+            for fname, (filter_df, filter_figures) in filters.items():
+                filter_df.columns = filter_df.columns.set_names([fname + '_' + n for n in filter_df.columns.names])
+                entries = filter_df.vbt.tile(entries.shape[1]).vbt & entries.vbt.repeat(filter_df.shape[1]).vbt
+                exits = exits.vbt.repeat(filter_df.shape[1])
+                exits.columns = entries.columns
+
+                # merge figures
+                if filter_figures is not None:
+                    if 'figures' in filter_figures:
+                        if 'figures' not in fig_data:
+                            fig_data['figures'] = {}
+                        for name, fig in filter_figures['figures'].items():
+                            fig_data['figures'][fname+'_'+name] = fig
+                    if 'overlaps' in filter_figures:
+                        if 'overlaps' not in fig_data:
+                            fig_data['overlaps'] = {}
+                        for name, fig in filter_figures['overlaps'].items():
+                            fig_data['overlaps'][fname+'_'+name] = fig
+
+            return entries, exits, fig_data
+
+        @staticmethod
+        def _add_stops(ohlcv, entries, exits, variables):
+
+            if 'stoploss' in variables:
+                trailing = False
+                if 'trailing' in variables:
+                    trailing = variables['trailing']
+
+                entries, exits = stop_early(ohlcv,
+                                            'stoploss',
+                                            variables['stoploss'], entries, exits, trailing=trailing)
+
+            if 'profit_targets' in variables:
+                entries, exits = stop_early(ohlcv,
+                                            'profit_targets',
+                                            variables['profit_targets'], entries, exits)
+            entries = entries.squeeze()
+            exits = exits.squeeze()
+            return entries, exits
+
+        def backtest(self, ohlcv, variables=dict(), filters=dict(), plot=False, lookback=None, signals=False, side='long', **args):
 
             variables_without_stop = copy.copy(variables)
 
-            if 'stoploss' in variables_without_stop:
-                variables_without_stop.pop('stoploss')
+            exit_vars = ['stoploss', 'profit_targets', 'trailing']
+            for e in exit_vars:
+                if e in variables_without_stop:
+                    variables_without_stop.pop(e)
 
-            if 'profit_targets' in variables_without_stop:
-                variables_without_stop.pop('profit_targets')
-
-            ohlcv_lookback = ohlcv.iloc[-lookback:] if lookback is not None else ohlcv
-
-            if side == 'short':
-                inv_close = ohlcv_lookback.close / ohlcv_lookback.ohlcv.close.shift(1)
+            ohlcv_lookback = ohlcv.iloc[-lookback:] if lookback else ohlcv
 
             variable_enumerate = enumerate_variables(variables_without_stop)
-            if len(variable_enumerate) == 0:
-                variable_enumerate.append(default_parameters)
+
+            if not variable_enumerate:
+                variable_enumerate = [default_parameters]
+
             entries, exits, fig_data = enumerate_signal(ohlcv_lookback, self, variable_enumerate)
 
-            if filters is not None:
-                for fname, f in filters.items():
+            if filters:
+                filter_signals = self._enumerate_filters(ohlcv_lookback, filters)
+                entries, exits, fig_data = self._add_filters(entries, exits, fig_data, filter_signals)
 
-                    # get filter signals and figures
-                    filter_df, filter_figures = f(ohlcv)
-
-                    # merge filter_df
-                    filter_df.columns = filter_df.columns.set_names([fname + '_' + n for n in filter_df.columns.names])
-                    entries = filter_df.vbt.tile(entries.shape[1]).vbt & entries.vbt.repeat(filter_df.shape[1]).vbt
-                    exits = exits.vbt.repeat(filter_df.shape[1])
-                    exits.columns = entries.columns
-
-                    # merge figures
-                    if filter_figures is not None:
-                        if 'figures' in filter_figures:
-                            if 'figures' not in fig_data:
-                                fig_data['figures'] = {}
-                            for name, fig in filter_figures['figures'].items():
-                                fig_data['figures'][fname+'_'+name] = fig
-                        if 'overlaps' in filter_figures:
-                            if 'overlaps' not in fig_data:
-                                fig_data['overlaps'] = {}
-                            for name, fig in filter_figures['overlaps'].items():
-                                fig_data['overlaps'][fname+'_'+name] = fig
-
-            if 'stoploss' in variables:
-                entries, exits = stop_early(ohlcv_lookback,
-                                            'stoploss',
-                                            variables['stoploss'], entries, exits)
-
-            if 'profit_targets' in variables:
-                entries, exits = stop_early(ohlcv_lookback,
-                                            'profit_targets',
-                                            variables['profit_targets'], entries, exits)
-
-            entries = entries.squeeze()
-            exits = exits.squeeze()
+            entries, exits = self._add_stops(ohlcv_lookback, entries, exits, variables)
 
             if signals:
                 return entries, exits, fig_data
@@ -153,14 +170,13 @@ def Strategy(**default_parameters):
                 portfolio = vbt.Portfolio.from_signals(
                     ohlcv_lookback.close, entries.fillna(False), exits.fillna(False), **args)
             elif side == 'short':
-                portfolio = vbt.Portfolio.from_signals(
-                    inv_close, exits.fillna(False), entries.fillna(False), **args)
+                raise Exception('Shorting is not support yet')
             else:
                 raise Exception("side should be 'long' or 'short'")
 
-
             if plot and isinstance(entries, pd.Series):
                 plot_strategy(ohlcv_lookback, entries, exits, portfolio ,fig_data)
+
             elif plot:
                 plot_combination(portfolio)
                 plt.show()
