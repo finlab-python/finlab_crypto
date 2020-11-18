@@ -79,6 +79,12 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 * more tests
 
 ## Updates
+Version 0.1.19
+* refactor(strategy.py): refactor strategy
+* refactor(cscv.py): refactor cscv
+* add cscv_nbins and cscv_objective to strategy.backtest
+* add bitmex support
+
 Version 0.1.18
 * fix(crawler): get_n_bars
 * fix(TradingPortfolio): get_ohlcv

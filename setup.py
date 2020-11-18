@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 setuptools.setup(
      name='finlab-crypto',
-     version='0.1.18',
+     version='0.1.19',
      author="FinLab",
      author_email="finlabstaff@gmail.com",
      description="A backtesting framework for crytpo currency",
