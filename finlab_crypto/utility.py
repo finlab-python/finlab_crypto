@@ -214,7 +214,8 @@ def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
     fig.subplots_adjust(bottom=0.5)
     fig.suptitle('Combinatorially Symmetric Cross-validation')
 
-    axes[0].title.set_text('Probability of overfitting ')
+    pbo_test = round(results['pbo_test'] * 100, 2)
+    axes[0].title.set_text(f'Probability of overfitting: {pbo_test} %')
     axes[0].hist(x=[l for l in results['logits'] if l > -10000], bins='auto')
     axes[0].set_xlabel('Logits')
     axes[0].set_ylabel('Frequency')
