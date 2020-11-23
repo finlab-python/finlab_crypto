@@ -1,14 +1,14 @@
-# FinLab Crypto
+<a href="url"><img src="https://i.ibb.co/qWCSkr9/Picture1.png" align="center" width="200px"></a>
 [![Build Status](https://travis-ci.com/finlab-python/finlab_crypto.svg?branch=master)](https://travis-ci.com/finlab-python/finlab_crypto) [![PyPI version](https://badge.fury.io/py/finlab-crypto.svg)](https://badge.fury.io/py/finlab-crypto) [![codecov](https://codecov.io/gh/finlab-python/finlab_crypto/branch/master/graph/badge.svg?token=POS648UJ10)](https://codecov.io/gh/finlab-python/finlab_crypto)
 
-A backtest and verification framework for cryptocurrency
+Develop and verify crypto trading strategies at a glance.
 
 ## Key Features
 * Pandas vectorize backtest
 * Talib wrapper to composite strategies easily
-* Backtest visualization and analysis (uses vectorbt and pyecharts as backend)
-* Analaysis the probability of overfitting using CSCV (combinatorially symmetric cross validation )
-* Easy to deploy strategies on google cloud function
+* Backtest visualization and analysis (uses [vectorbt](https://github.com/polakowo/vectorbt/) as backend)
+* Analaysis the probability of overfitting ([combinatorially symmetric cross validation](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf))
+* Easy to deploy strategies on google cloud functions
 * Colab and Jupyter compatable
 
 ## Installation
@@ -31,6 +31,7 @@ finlab_crypto.setup()
 ohlcv = finlab_crypto.crawler.get_all_binance('BTCUSDT', '4h')
 ohlcv.head()
 ```
+!['dataframe'](https://i.ibb.co/YP8Q66m/Screen-Shot-2020-11-23-at-9-33-25-AM.png)
 ### Trading Strategy
 ``` python
 @finlab_crypto.Strategy(n1=20, n2=60)
@@ -49,7 +50,7 @@ def sma_strategy(ohlcv):
 vars =  {'n1': 20, 'n2': 60}
 portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 ```
-
+![image](https://media.giphy.com/media/tv4xpwJ3T1zJGV6Smj/giphy.gif)
 ### Optimization
 ``` python
 import numpy as np
@@ -59,10 +60,13 @@ vars = {
 }
 portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 ```
+![cumulative returns](https://i.ibb.co/vxMV4yG/Screen-Shot-2020-11-23-at-9-49-06-AM.png)
+![parameter performance](https://i.ibb.co/McrKYDc/Screen-Shot-2020-11-23-at-9-49-15-AM.png)
+![parameter range view](https://i.ibb.co/q9d1YHG/Screen-Shot-2020-11-23-at-9-49-28-AM.png)
 
 ### Testing
 
-The following script runs all testcases locally. Before running testcases, [creating an isolated python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended. To test crawler functions, please provide Binance API's key and secret by setting environment variables `BINANCE_KEY` and `BINANCE_SECRET`, respectively.
+The following script runs all testcases on your local environment. [Creating an isolated python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended. To test crawler functions, please provide Binance API's key and secret by setting environment variables `BINANCE_KEY` and `BINANCE_SECRET`, respectively.
 
 ``` bash
 git clone https://github.com/finlab-python/finlab_crypto.git
@@ -72,13 +76,10 @@ pip install coverage
 BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage run -m unittest discover --pattern *_test.py
 ```
 
-## Todo
-* comments in online.py
-* add batch backtesting
-* support shorting asset
-* more tests
-
 ## Updates
+Version 0.2.0
+* update vectorbt to 0.14.4
+
 Version 0.1.19
 * refactor(strategy.py): refactor strategy
 * refactor(cscv.py): refactor cscv
