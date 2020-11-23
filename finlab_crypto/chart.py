@@ -8,7 +8,7 @@ import pandas as pd
 from pyecharts.charts import Candlestick
 
 def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=[], start_date=None, end_date=None):
-    
+
     title = 60
     title_margin_top = 30
     main_chart_height = 300
@@ -16,15 +16,15 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     vol_chart_height = 50
     sub_figure_height = 60
     width = 800
-    
+
     dfstock = dfstock.loc[start_date:end_date]
-    
+
     mark_data = []
     for mark in markers:
-        
+
         if mark[1] not in dfstock.index:
           continue
-        
+
         x = np.where(dfstock.index == mark[1])[0][0]
         y = dfstock.high.loc[mark[1]]
         color = '#1d6ff2'
@@ -49,7 +49,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
             'coord': [x[1], y[1]]
         }
         ])
-    
+
     #for m in modified_marklines:
     #  print(m.opts)
     #  print('------')
@@ -62,12 +62,12 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     #                        itemstyle_opts=opts.ItemStyleOpts(color='rgba(0,0,0,0.3)')
     #     )
     # ]
-    
+
     kline = (
         Kline()
         .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
         .add_yaxis(
-            series_name="klines", 
+            series_name="klines",
             y_axis=dfstock[['open', 'close', 'low', 'high']].values.tolist(),
             markpoint_opts=opts.MarkPointOpts(
                 data=mark_data
@@ -103,7 +103,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
             linestyle_opts=opts.LineStyleOpts(opacity=0.5),
             label_opts=opts.LabelOpts(is_show=False),
         )
-        
+
     # Bar-1
     bar_1 = (
         Bar()
@@ -136,10 +136,10 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     #################
     # indicators
     #################
-    
+
     def is_item(item):
         return isinstance(item, pd.Series) or isinstance(item, tuple)
-    
+
     def item_to_chart(name, item):
 
         if isinstance(item, pd.Series):
@@ -151,10 +151,10 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
         else:
             print('Object type not accept (only pd.Series or tuple)')
             raise
-            
+
         values = series.to_list()
         index = series.index.astype(str).to_list()
-            
+
         chart = None
         if item_type == 'line':
             chart = Line()
@@ -175,9 +175,9 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
                 #yaxis_index=1,
                 label_opts=opts.LabelOpts(is_show=False),
             )
-            
+
         return chart
-                
+
     example_charts = []
     for name, graph in figures.items():
         if is_item(graph):
@@ -188,9 +188,8 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
                 ys[0].overlap(y)
             example_charts.append(ys[0])
         else:
-            print('cannot support subfigure type')
-            raise
-            
+            raise Exception('cannot support subfigure type')
+
     if len(dfstock) <= 500:
         range_start = 0
     else:
@@ -246,14 +245,14 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     )
     grid_chart.add(
         overlap_kline_line,
-        grid_opts=opts.GridOpts(pos_top=str(title) + 'px', 
+        grid_opts=opts.GridOpts(pos_top=str(title) + 'px',
                                 height=str(main_chart_height) + 'px',
                                 pos_left=str(margin_left)+'px', pos_right='0'),
     )
-    
+
     grid_chart.add(
         bar_1,
-        grid_opts=opts.GridOpts(pos_top=str(title+main_chart_height-vol_chart_height) + 'px', 
+        grid_opts=opts.GridOpts(pos_top=str(title+main_chart_height-vol_chart_height) + 'px',
                                 height=str(vol_chart_height) + 'px',
                                 pos_left=str(margin_left)+'px', pos_right='0'),
     )
@@ -267,7 +266,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
         chart_pos_top = title_pos_top + title
         grid_chart.add(
             chart,
-            grid_opts=opts.GridOpts(pos_top=str(chart_pos_top) + 'px', 
+            grid_opts=opts.GridOpts(pos_top=str(chart_pos_top) + 'px',
                                     height=str(sub_figure_height) + 'px',
                                     pos_left=str(margin_left)+'px', pos_right='0'
                                    ),

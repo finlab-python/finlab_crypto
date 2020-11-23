@@ -62,24 +62,26 @@ class CSCV(object):
         # stochastic dominance
 
         # caluclate
-        y = np.linspace(
-            min(r_bar_star_series), max(r_bar_star_series), endpoint=True, num=1000
-        )
+        if len(r_bar_star_series) != 0:
+            y = np.linspace(
+                min(r_bar_star_series), max(r_bar_star_series), endpoint=True, num=1000
+            )
 
-        # build CDF performance of best candidate in IS
-        R_bar_n_star_cdf = ECDF(r_bar_star_series.values)
-        optimized = R_bar_n_star_cdf(y)
+            # build CDF performance of best candidate in IS
+            R_bar_n_star_cdf = ECDF(r_bar_star_series.values)
+            optimized = R_bar_n_star_cdf(y)
 
-        # build CDF performance of average candidate in IS
-        R_bar_mean_cdf = ECDF(R_bar_df.median(axis=1).values)
-        non_optimized = R_bar_mean_cdf(y)
+            # build CDF performance of average candidate in IS
+            R_bar_mean_cdf = ECDF(R_bar_df.median(axis=1).values)
+            non_optimized = R_bar_mean_cdf(y)
 
-        #
-        dom_df = pd.DataFrame(
-            dict(optimized_IS=optimized, non_optimized_OOS=non_optimized)
-        , index=y)
-        dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
-
+            #
+            dom_df = pd.DataFrame(
+                dict(optimized_IS=optimized, non_optimized_OOS=non_optimized)
+            , index=y)
+            dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
+        else:
+            dom_df = pd.DataFrame(columns=['optimized_IS', 'non_optimized_OOS', 'SD2'])
 
         ret = {
             'pbo_test': (logits < 0).sum() / len(logits),

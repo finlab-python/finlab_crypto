@@ -9,6 +9,7 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import copy
+import os
 
 from . import chart
 from . import overfitting
@@ -90,35 +91,59 @@ def enumerate_signal(ohlcv, strategy, variables, ):
         entries.columns = columns
     return entries, exits, fig
 
-def stop_early(ohlcv, stop_type, stop_percentages, entries, exits, trailing=False):
+def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
 
-    nrepeat = 1
+    if not stop_vars:
+        return entries, exits
 
-    if stop_type == 'stoploss':
-        stop_exits = entries.vbt.signals.generate_stop_loss_exits(
-            ohlcv.close, stop_percentages, trailing=trailing)
-    elif stop_type == 'profit_targets':
-        stop_exits = entries.vbt.signals.generate_take_profit_exits(
-            ohlcv.close, stop_percentages)
-    else:
-        raise "stop_type can only be either 'stoploss' or 'profit_target'"
+    # check for stop_vars
+    length = -1
+    for s, slist in stop_vars.items():
+        if s not in ['sl_stop', 'ts_stop', 'tp_stop']:
+            raise Exception(f'variable { s } is not one of the stop variables'
+                             ': sl_stop, ts_stop, or tp_stop')
+        if not isinstance(slist, Iterable):
+            stop_vars[s] = [slist]
 
-    if isinstance(stop_percentages, Iterable):
-        exits = exits.vbt.tile(len(stop_percentages))
-        nrepeat = len(stop_percentages)
+        if length == -1:
+            length = len(stop_vars[s])
+
+        if not enumeration and length != -1 and length != len(stop_vars[s]):
+            raise Exception(f'lengths of the variables are not align: '
+                    + str([len(stop_vars[s]) for s, slist in stop_vars.items()]))
+
+    if enumeration:
+        stop_vars = enumerate_variables(stop_vars)
+        stop_vars = {key: [stop_vars[i][key] for i in range(len(stop_vars))] for key in stop_vars[0].keys()}
+
+    sl_advstex = vbt.ADVSTEX.run(
+        entries,
+        ohlcv['open'],
+        ohlcv['high'],
+        ohlcv['low'],
+        ohlcv['close'],
+        stop_type=None,
+        **stop_vars
+    )
+
+    stop_exits = sl_advstex.exits
+
+    nrepeat = int(len(stop_exits.columns) / len(entries.columns))
+    if isinstance(stop_exits, pd.DataFrame):
+        exits = exits.vbt.tile(nrepeat)
+        entries = entries.vbt.tile(nrepeat)
 
     stop_exits = stop_exits.vbt | exits.values
-    entries = entries.vbt.tile(nrepeat)
     entries.columns = stop_exits.columns
 
     return entries, stop_exits
 
-def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data):
+def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
 
     # format trade data
-    txn = portfolio.positions.records
-    txn['enter_time'] = ohlcv.iloc[portfolio.trades.records.entry_idx].index.values
-    txn['exit_time'] = ohlcv.iloc[portfolio.trades.records.exit_idx].index.values
+    txn = portfolio.positions().records
+    txn['enter_time'] = ohlcv.iloc[txn.entry_idx].index.values
+    txn['exit_time'] = ohlcv.iloc[txn.exit_idx].index.values
 
     # plot trade data
     mark_lines = []
@@ -140,17 +165,22 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data):
 
     figures['entries & exits'] = pd.DataFrame(
         {'entries':entries.squeeze(), 'exits': exits.squeeze()})
-    figures['performance'] = portfolio.equity
+    figures['performance'] = portfolio.cumulative_returns()
 
     c, info = chart.chart(ohlcv, overlaps=overlaps,
                           figures=figures, markerlines=mark_lines,
                           start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1])
     c.load_javascript()
     c.render()
-    display(HTML(filename="render.html"))
-    return HTML(filename="render.html")
+    
+    if html is not None:
+        os.rename('render.html', html)
+    else:
+        display(HTML(filename='render.html'))
 
-def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
+    return 
+
+def plot_combination(portfolio, cscv_result=None, metric='final_value'):
 
     sns.set()
     sns.set_style("whitegrid")
@@ -165,17 +195,17 @@ def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
             getattr(portfolio, item_name).groupby(name1).mean().plot(ax=ax)
 
     def best_n(portfolio, n):
-        return getattr(portfolio, metric).sort_values().tail(n).index
+        return getattr(portfolio, metric)().sort_values().tail(n).index
 
     best_10 = best_n(portfolio, 10)
 
-    ax = (portfolio.cumulative_returns[best_10] * 100).plot(ax=axes[0])
+    ax = (portfolio.cumulative_returns()[best_10] * 100).plot(ax=axes[0])
     ax.set(xlabel='time', ylabel='cumulative return (%)')
 
     axes[1].title.set_text('Drawdown (%)')
     for n, c in zip([5, 10, 20, 30], sns.color_palette("GnBu_d")):
         bests = best_n(portfolio, n)
-        drawdown = portfolio.drawdown[bests].min(axis=1)
+        drawdown = portfolio.drawdown()[bests].min(axis=1)
         ax = drawdown.plot(linewidth=1, ax=axes[1])
         # ax.fill_between(drawdown.index, 0, drawdown * 100, alpha=0.2, color=c)
     ax.set(xlabel='time', ylabel='drawdown (%)')
@@ -183,21 +213,22 @@ def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
     plt.show()
 
 
-    items = ['final_equity', 'sharpe_ratio', 'sortino_ratio']
+    items = ['final_value', 'sharpe_ratio', 'sortino_ratio']
     fig, axes = plt.subplots(1, len(items), figsize=(15, 3),
                              sharey=False, sharex=False, constrained_layout=False)
     fig.subplots_adjust(top=0.75)
     fig.suptitle('Partial Differentiation')
 
-    if isinstance(portfolio.final_equity.index, pd.MultiIndex):
-        index_names = portfolio.final_equity.index.names
+    final_value = portfolio.final_value()
+    if isinstance(final_value.index, pd.MultiIndex):
+        index_names = final_value.index.names
     else:
-        index_names = [portfolio.final_equity.index.name]
+        index_names = [final_value.index.name]
 
     for i, item in enumerate(items):
         results = {}
         for name in index_names:
-            s = getattr(portfolio, item)
+            s = getattr(portfolio, item)()
             s = s.replace([np.inf, -np.inf], np.nan)
             results[name] = s.groupby(name).mean()
         results = pd.DataFrame(results)
@@ -222,22 +253,23 @@ def plot_combination(portfolio, cscv_result=None, metric='final_equity'):
 
     # performance degradation
     axes[1].title.set_text('Performance degradation')
-    sns.regplot(results['R_n_star'], results['R_bar_n_star'], ax=axes[1])
-    axes[1].set_xlim(min(results['R_n_star']) * 1.2,max(results['R_n_star']) * 1.2)
-    axes[1].set_ylim(min(results['R_bar_n_star']) * 1.2,max(results['R_bar_n_star']) * 1.2)
+    x, y = pd.DataFrame([results['R_n_star'], results['R_bar_n_star']]).dropna(axis=1).values
+    sns.regplot(x, y, ax=axes[1])
+    #axes[1].set_xlim(min(results['R_n_star']) * 1.2,max(results['R_n_star']) * 1.2)
+    #axes[1].set_ylim(min(results['R_bar_n_star']) * 1.2,max(results['R_bar_n_star']) * 1.2)
     axes[1].set_xlabel('In-sample Performance')
     axes[1].set_ylabel('Out-of-sample Performance')
 
     # first and second Stochastic dominance
     axes[2].title.set_text('Stochastic dominance')
-    results['dom_df'].plot(ax=axes[2], secondary_y=['SD2'])
+    if len(results['dom_df']) != 0: results['dom_df'].plot(ax=axes[2], secondary_y=['SD2'])
     axes[2].set_xlabel('Performance optimized vs non-optimized')
     axes[2].set_ylabel('Frequency')
 
 
 def variable_visualization(portfolio):
 
-    param_names = portfolio.cumulative_returns.columns.names
+    param_names = portfolio.cumulative_returns().columns.names
     dropdown1 = widgets.Dropdown(
         options=param_names,
         value=param_names[0],
@@ -251,7 +283,7 @@ def variable_visualization(portfolio):
         disabled=False,
     )
 
-    performance_metric = ['final_equity',
+    performance_metric = ['final_value',
         'calmar_ratio', 'max_drawdown', 'sharpe_ratio',
         'downside_risk', 'omega_ratio', 'conditional_value_at_risk']
 
@@ -273,14 +305,14 @@ def variable_visualization(portfolio):
         with out:
             out.clear_output()
             if name1 != name2:
-                df = (getattr(portfolio, performance)
+                df = (getattr(portfolio, performance)()
                       .reset_index().groupby([name1, name2]).mean()[0]
                       .reset_index().pivot(name1, name2)[0])
 
                 df = df.replace([np.inf, -np.inf], np.nan)
                 sns.heatmap(df)
             else:
-                getattr(portfolio, performance).groupby(name1).mean().plot()
+                getattr(portfolio, performance)().groupby(name1).mean().plot()
             plt.show()
 
 

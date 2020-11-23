@@ -8,7 +8,6 @@ import vectorbt as vbt
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections.abc import Iterable
-from vectorbt.indicators.factory import compare
 
 def Filter(**default_parameters):
 
@@ -123,32 +122,23 @@ def Strategy(**default_parameters):
         @staticmethod
         def _add_stops(ohlcv, entries, exits, variables):
 
-            if 'stoploss' in variables:
-                trailing = False
-                if 'trailing' in variables:
-                    trailing = variables['trailing']
-
-                entries, exits = stop_early(ohlcv,
-                                            'stoploss',
-                                            variables['stoploss'], entries, exits, trailing=trailing)
-
-            if 'profit_targets' in variables:
-                entries, exits = stop_early(ohlcv,
-                                            'profit_targets',
-                                            variables['profit_targets'], entries, exits)
+            entries, exits = stop_early(ohlcv, entries, exits, variables)
             entries = entries.squeeze()
             exits = exits.squeeze()
             return entries, exits
 
         def backtest(self, ohlcv, variables=dict(),
-                filters=dict(), plot=False, lookback=None,
-                signals=False, side='long', cscv_nbins=10, cscv_objective=lambda r:r.mean(), **args):
+                filters=dict(), lookback=None, plot=False,
+                signals=False, side='long', cscv_nbins=10, 
+                cscv_objective=lambda r:r.mean(), html=None, **args):
 
             variables_without_stop = copy.copy(variables)
 
-            exit_vars = ['stoploss', 'profit_targets', 'trailing']
+            exit_vars = ['sl_stop', 'ts_stop', 'tp_stop']
+            stop_vars = {}
             for e in exit_vars:
                 if e in variables_without_stop:
+                    stop_vars[e] = variables[e]
                     variables_without_stop.pop(e)
 
             ohlcv_lookback = ohlcv.iloc[-lookback:] if lookback else ohlcv
@@ -164,7 +154,7 @@ def Strategy(**default_parameters):
                 filter_signals = self._enumerate_filters(ohlcv_lookback, filters)
                 entries, exits, fig_data = self._add_filters(entries, exits, fig_data, filter_signals)
 
-            entries, exits = self._add_stops(ohlcv_lookback, entries, exits, variables)
+            entries, exits = self._add_stops(ohlcv_lookback, entries, exits, stop_vars)
 
             if signals:
                 return entries, exits, fig_data
@@ -179,14 +169,14 @@ def Strategy(**default_parameters):
             else:
                 raise Exception("side should be 'long' or 'short'")
 
-            if plot and isinstance(entries, pd.Series):
-                plot_strategy(ohlcv_lookback, entries, exits, portfolio ,fig_data)
+            if (plot or html is not None) and isinstance(entries, pd.Series):
+                plot_strategy(ohlcv_lookback, entries, exits, portfolio ,fig_data, html=html)
 
-            elif plot:
+            elif plot and isinstance(entries, pd.DataFrame):
 
                 # perform CSCV algorithm
                 cscv = CSCV(n_bins=cscv_nbins, objective=cscv_objective)
-                cscv.add_daily_returns(portfolio.daily_returns)
+                cscv.add_daily_returns(portfolio.daily_returns())
                 cscv_result = cscv.estimate_overfitting(plot=False)
 
                 # plot results

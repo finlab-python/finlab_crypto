@@ -12,7 +12,7 @@ __version__ = '0.1.19'
 
 
 # set default fees and slippage
-vbt.defaults.portfolio['init_capital'] = 100 # in $
+vbt.defaults.portfolio['init_cash'] = 100.0 # in $
 vbt.defaults.portfolio['fees'] = 0.001       # in %
 vbt.defaults.portfolio['slippage'] = 0.001  # in %
 

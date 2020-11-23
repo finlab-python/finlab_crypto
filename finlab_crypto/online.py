@@ -111,25 +111,29 @@ class TradingPortfolio():
     return ohlcvs
 
 
-  def get_latest_signals(self, ohlcvs):
+  def get_latest_signals(self, ohlcvs, html=False):
 
     ret = []
     for method in self._trading_methods:
       for symbol in method.symbols:
         ohlcv = ohlcvs[(symbol, method.freq)]
+        htmlname = f'{ symbol }-{ method.freq }-{ method.name }.html' if html else None
         result = method.strategy.backtest(ohlcv,
-                method.variables, filters=method.filters, freq=method.freq, fees=0, slippage=0)
+                method.variables, filters=method.filters, plot=html,
+                html=htmlname,
+                freq=method.freq, fees=0., slippage=0.)
 
-        signal = result.cash.iloc[-1] == 0
+        signal = result.cash().iloc[-1] == 0
         return_ = 0
         weight_btc = method.weight_btc
         entry_price = 0
         entry_time = 0
         value_in_btc = 0
         if signal:
-            return_ = result.positions.records.iloc[-1]['return']
-            entry_price = result.positions.records.iloc[-1]['entry_price']
-            entry_time = ohlcv.index[int(result.positions.records.iloc[-1]['entry_idx'])]
+            txn = result.positions().records
+            return_ = txn.iloc[-1]['return']
+            entry_price = txn.iloc[-1]['entry_price']
+            entry_time = ohlcv.index[int(txn.iloc[-1]['entry_idx'])]
 
             base_asset = self.ticker_info.get_base_asset(symbol)
             if base_asset != self.quote_asset:
@@ -161,6 +165,7 @@ class TradingPortfolio():
           'latest_price': ohlcv.close.iloc[-1],
           'entry_price': entry_price,
           'entry_time': entry_time,
+          'html': htmlname,
         })
 
     ret = pd.DataFrame(ret)
@@ -410,7 +415,7 @@ class TradingPortfolio():
           'weight': method.weight_btc,
           'portfolio': result,
           'trading_method': method,
-          'signal': result.cash.iloc[-1] == 0,
+          'signal': result.cash().iloc[-1] == 0,
         })
 
 
@@ -464,7 +469,7 @@ class TradingPortfolio():
           'weight': method.weight_btc,
           'portfolio': result,
           'trading_method': method,
-          'signal': result.cash.iloc[-1] == 0,
+          'signal': result.cash().iloc[-1] == 0,
         })
 
     results = pd.DataFrame(results)
@@ -473,7 +478,7 @@ class TradingPortfolio():
     position = {}
     quote_substract = {}
     for index, value in results.transpose().items():
-      position[value.loc['name']+'|'+ value.symbol + '|' + value.freq] = (value.portfolio.cash == 0).shift(delay).ffill() * value.weight
+      position[value.loc['name']+'|'+ value.symbol + '|' + value.freq] = (value.portfolio.cash() == 0).shift(delay).ffill() * value.weight
     position = pd.DataFrame(position).resample(min_freq).last().ffill()
     position.columns = position.columns.str.split('|').str[1]
     position = position.ffill().fillna(0)
