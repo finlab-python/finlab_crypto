@@ -1,7 +1,7 @@
 """Strategy function plug-in.
 
 You can use Filter and Strategy function as decorator
-that make strategies easy to construct filters
+that make strategies easy to construct filters layers
 and common strategy detection methods, such as back-testing,
 parameter tuning and analysis charts.
 
@@ -246,7 +246,12 @@ def Strategy(**default_parameters):
                 A dict of _enumerate_filters function return.
 
             Returns:
-              A dict of tuple with filter signal dataframe and figures data.
+              entries:
+                A dataframe of entries point time series after add filter function.
+              exits:
+                A dataframe of exits point time series after add filter function.
+              fig_data
+                A dict of tuple with filter signal dataframe and figures data.
 
             """
             for fname, (filter_df, filter_figures) in filters.items():

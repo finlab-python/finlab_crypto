@@ -3,6 +3,25 @@ import pandas as pd
 import numpy as np
 
 def TalibStrategy(talib_function_name, entries, exits):
+    """As a decorator that Make strategies easy with talib indicator.
+
+    Args:
+      talib_function_name:
+        A str of technical indicator function name in talib mudule.
+      entries:
+        A dataframe of entry point time series.
+      exits:
+        A dataframe of exits point time series.
+
+    Returns:
+      entries:
+        A dataframe of entries point time series after add talib strategy function.
+      exits:
+        A dataframe of exits point time series after add talib strategy function.
+      figures:
+        A dict of tuple with filter signal dataframe and figures data.
+
+    """
     from talib import abstract
     import talib
     f = getattr(abstract, talib_function_name)
