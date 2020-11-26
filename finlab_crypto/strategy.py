@@ -129,8 +129,8 @@ def Strategy(**default_parameters):
 
         def backtest(self, ohlcv, variables=dict(),
                 filters=dict(), lookback=None, plot=False,
-                signals=False, side='long', cscv_nbins=10, 
-                cscv_objective=lambda r:r.mean(), html=None, **args):
+                signals=False, side='long', cscv_nbins=10,
+                cscv_objective=lambda r:r.mean(), html=None, compounded=True, **args):
 
             variables_without_stop = copy.copy(variables)
 
@@ -160,6 +160,10 @@ def Strategy(**default_parameters):
                 return entries, exits, fig_data
 
             if side == 'long':
+
+                if not compounded:
+                    args['size'] = vbt.defaults.portfolio['init_cash']
+
                 portfolio = vbt.Portfolio.from_signals(
                     ohlcv_lookback.close, entries.fillna(False), exits.fillna(False), **args)
 
