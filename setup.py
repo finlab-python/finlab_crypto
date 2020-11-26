@@ -1,10 +1,10 @@
-
 import setuptools
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 setuptools.setup(
      name='finlab-crypto',
-     version='0.2.0',
+     version='0.2.1',
      author="FinLab",
      author_email="finlabstaff@gmail.com",
      description="A backtesting framework for crytpo currency",
@@ -12,11 +12,9 @@ setuptools.setup(
    long_description_content_type="text/markdown",
      packages=['finlab_crypto'],
      install_requires=['python-binance==0.7.5',
-        'numba==0.49.0',
-        'bitmex==0.2.2',
         'pyecharts==1.7.1',
-        'vectorbt==0.12',
-        'statsmodels==0.10.2',
+        'vectorbt==0.14.4',
+        'statsmodels>=0.10.2',
         'tqdm>=4.41.1',
         'seaborn==0.10.1',
         ],
