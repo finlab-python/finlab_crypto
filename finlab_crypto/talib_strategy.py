@@ -3,6 +3,25 @@ import pandas as pd
 import numpy as np
 
 def TalibStrategy(talib_function_name, entries, exits):
+    """A strategy factory that makes strategies using talib indicator.
+
+    Args:
+      talib_function_name:
+        A str of technical indicator function name in talib mudule.
+      entries:
+        A function that transfer indicator series to boolean signals (ex: lambda ohlcv, ma: ohlcv.close > ma)
+      exits:
+        A function that transfer indicator series to boolean signals (ex: lambda ohlcv, ma: ohlcv.close < ma)
+
+    Returns:
+      entries:
+        A dataframe of entries point time series after add talib strategy function.
+      exits:
+        A dataframe of exits point time series after add talib strategy function.
+      figures:
+        A dict of tuple with filter signal dataframe and figures data.
+
+    """
     from talib import abstract
     import talib
     f = getattr(abstract, talib_function_name)

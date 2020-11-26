@@ -4,6 +4,22 @@ import pandas as pd
 import numpy as np
 
 def TalibFilter(talib_function_name, condition=None, **additional_parameters):
+    """A filter factory that makes filter using talib indicator.
+
+    Args:
+      talib_function_name:
+        A str of technical indicator function name in talib mudule.
+      condition:
+        A function that transfer indicators to bool signals (ex: lambda ohlcv, ma: ohlcv.close > ma)
+      **additional_parameters:
+        other parameters for parameter optimization.
+
+    Returns:
+      signals:
+        A dataframe of filter signals.
+      figures:
+        A dict of required data for figure display.
+    """
     from talib import abstract
     import talib
     f = getattr(abstract, talib_function_name)
