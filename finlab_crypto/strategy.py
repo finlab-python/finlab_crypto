@@ -26,7 +26,7 @@ parameter tuning and analysis charts.
 from finlab_crypto.utility import (enumerate_variables, enumerate_signal,
                                    stop_early, plot_combination, plot_strategy,
                                    variable_visualization, remove_pd_object
-                                  )
+                                   )
 from finlab_crypto.overfitting import CSCV
 import copy
 import vectorbt as vbt
@@ -46,6 +46,7 @@ def Filter(**default_parameters):
     Returns:
       decorator inner function.
     """
+
     class Filter:
         """Filter package features plug-in.
 
@@ -58,7 +59,7 @@ def Filter(**default_parameters):
 
         """
 
-        def __init__(self, func,):
+        def __init__(self, func, ):
             """Inits Filter."""
             self.func = func
             self._variables = None
@@ -97,6 +98,7 @@ def Filter(**default_parameters):
               fig_data:
                 A dict of required data for figure display.
             """
+
             def ret_f(ohlcv):
 
                 variable_enumerate = enumerate_variables(variables)
@@ -144,6 +146,7 @@ def Filter(**default_parameters):
 
     return deco
 
+
 def Strategy(**default_parameters):
     """As decorator layer.
     Let customized strategy functions have class Strategy features.
@@ -154,6 +157,7 @@ def Strategy(**default_parameters):
     Returns:
       decorator inner function.
     """
+
     class Strategy:
         """Strategy features plug-in.
 
@@ -223,7 +227,6 @@ def Strategy(**default_parameters):
             """
             ret = {}
             for fname, f in filters.items():
-
                 # get filter signals and figures
                 filter_df, filter_figures = f(ohlcv)
                 ret[fname] = (filter_df, filter_figures)
@@ -266,12 +269,12 @@ def Strategy(**default_parameters):
                         if 'figures' not in fig_data:
                             fig_data['figures'] = {}
                         for name, fig in filter_figures['figures'].items():
-                            fig_data['figures'][fname+'_'+name] = fig
+                            fig_data['figures'][fname + '_' + name] = fig
                     if 'overlaps' in filter_figures:
                         if 'overlaps' not in fig_data:
                             fig_data['overlaps'] = {}
                         for name, fig in filter_figures['overlaps'].items():
-                            fig_data['overlaps'][fname+'_'+name] = fig
+                            fig_data['overlaps'][fname + '_' + name] = fig
 
             return entries, exits, fig_data
 
@@ -302,9 +305,9 @@ def Strategy(**default_parameters):
             return entries, exits
 
         def backtest(self, ohlcv, variables=dict(),
-                filters=dict(), lookback=None, plot=False,
-                signals=False, side='long', cscv_nbins=10, 
-                cscv_objective=lambda r:r.mean(), html=None, **args):
+                     filters=dict(), lookback=None, plot=False,
+                     signals=False, side='long', cscv_nbins=10,
+                     cscv_objective=lambda r: r.mean(), html=None, **args):
 
             """Backtest analysis tool set.
             Use vectorbt as base module to create numerical operations features.
@@ -336,7 +339,7 @@ def Strategy(**default_parameters):
                 A int of CSCV algorithm bin size to control overfitting calculation.
                 Default is 10.
               cscv_objective:
-                A function of CSCV algorithms objective.
+                A function of in sample(is) and out of sample(oos) return benchmark algorithm.
                 Default is lambda r:r.mean().
               html:
                 A str of your customized html format file to show plot.
@@ -391,7 +394,7 @@ def Strategy(**default_parameters):
                 raise Exception("side should be 'long' or 'short'")
 
             if (plot or html is not None) and isinstance(entries, pd.Series):
-                plot_strategy(ohlcv_lookback, entries, exits, portfolio ,fig_data, html=html)
+                plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html)
 
             elif plot and isinstance(entries, pd.DataFrame):
 
@@ -406,7 +409,6 @@ def Strategy(**default_parameters):
                 variable_visualization(portfolio)
 
             return portfolio
-
 
     def deco(func):
         """Decorator inner function.
