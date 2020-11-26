@@ -361,6 +361,8 @@ def Strategy(**default_parameters):
 
             """
 
+            variables_without_stop = copy.copy(variables)
+
             exit_vars = ['sl_stop', 'ts_stop', 'tp_stop']
             stop_vars = {}
             for e in exit_vars:
