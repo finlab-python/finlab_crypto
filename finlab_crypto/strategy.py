@@ -32,7 +32,7 @@ import copy
 import vectorbt as vbt
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections.abc import Iterable
+from collections import Iterable
 
 
 class Filter(object):
@@ -41,10 +41,7 @@ class Filter(object):
     Offer easy way to create filter to use in class Strategy.
 
     Attributes:
-        func: A function that is your customized filter.
-        _variables: A dict of your customized filter attributes.
-        filters:A dict of your customized filters attributes.
-
+        default_parameters: customized filter attributes.
     """
 
     def __init__(self, **default_parameters):
@@ -55,6 +52,11 @@ class Filter(object):
         self._default_parameters = default_parameters
 
     def __call__(self, func):
+        """decorator function
+
+        Args
+          func: A function of the customized filter.
+        """
         self.func = func
         return self
 
@@ -63,7 +65,7 @@ class Filter(object):
 
         let filter class use variables dict to set method
 
-        args:
+        Args:
           variables: a dict of your customized filter attributes.
 
         """
@@ -85,9 +87,9 @@ class Filter(object):
 
         offer easy way to create filter signals, fig_data
 
-        args:
+        Args:
           variables: a dict of your customized filter attributes.
-        returns:
+        Returns:
           signals: a dataframe of filter signals.
           fig_data: a dict of required data for figure display.
         """
@@ -131,10 +133,8 @@ class Strategy(object):
     offer common strategy detection methods, such as back-testing,
     parameter tuning and analysis charts.
 
-    attributes:
-        func: a function that is your customized strategy.
-        _variables: a dict of your customized strategy attributes.
-        filters:a dict of your customized filters attributes.
+    Attributes:
+        default_parameters: customized strategy attributes.
 
     """
 
@@ -145,6 +145,11 @@ class Strategy(object):
         self._default_parameters = default_parameters
 
     def __call__(self, func):
+        """decorator function
+
+        Args
+          func: A function of customized strategy.
+        """
         self.func = func
         return self
 
@@ -153,7 +158,7 @@ class Strategy(object):
 
         let strategy class use variables dict to set method.
 
-        args:
+        Args:
           variables: a dict of your customized strategy attributes.
 
         """
@@ -185,11 +190,11 @@ class Strategy(object):
 
         process filter dictionary data to prepare for adding filter signals.
 
-        args:
+        Args:
           ohlcv: a dataframe of your trading target.
           filters: a dict of your customized filter attributes.
 
-        returns:
+        Returns:
           a dict that generate tuple with filter signal dataframe and figures data.
           for example:
 
