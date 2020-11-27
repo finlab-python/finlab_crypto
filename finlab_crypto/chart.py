@@ -13,26 +13,17 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     Use pyechart and seaborn module to generate interactive variety charts.
 
     Args:
-      dfstock:
-        A dataframe of trading target data.
-      overlaps:
-        A dict of overlaps indicator line setting in figure.
-      figures:
-        A dict of information needed for picture drawing.
-      markers:
-        A dict of which dfstock index needed to be mark.
-      markerlines:
-        A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.
-      start_date:
-        A datetime value of the start of dfstock.
-      end_date:
-        A datetime value of the end of dfstock .
+      dfstock: A dataframe of trading target data.
+      overlaps: A dict of overlaps indicator line setting in figure.
+      figures: A dict of information needed for picture drawing.
+      markers: A dict of which dfstock index needed to be mark.
+      markerlines: A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.
+      start_date: A datetime value of the start of dfstock.
+      end_date: A datetime value of the end of dfstock .
 
     Returns:
-      grid_chart:
-        chart display.
-      chart_size:
-        A dict of chart's height and width values.
+      grid_chart: chart display.
+      chart_size: A dict of chart's height and width values.
 
     """
     title = 60
