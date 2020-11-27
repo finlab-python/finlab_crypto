@@ -24,22 +24,15 @@ def minutes_of_new_data(symbol, kline_size, data, source, client):
     The boundary between new data and old data is 2017.1.1.
 
     Args:
-      symbol (str):
-        Trading pair (ex: BTCUSDT).
-      kline_size (str):
-        A frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
-      data (dataframe):
-        The data from get_all_binance() crawlers.
-      source (str):
-        data source (ex:'binance','bitmex')
-      client (Binance.Client) (optional):
-        Binance Client object.
+      symbol (str): Trading pair (ex: BTCUSDT).
+      kline_size (str): A frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
+      data (dataframe): The data from get_all_binance() crawlers.
+      source (str): data source (ex:'binance','bitmex')
+      client (Binance.Client) (optional): Binance Client object.
 
     Returns:
-      old:
-        OHLCV DataFrame of old format.
-      new:
-        OHLCV DataFrame of new format.
+      old: OHLCV DataFrame of old format.
+      new: OHLCV DataFrame of new format.
     """
     if len(data) > 0:
         old = parser.parse(data["timestamp"].iloc[-1])
@@ -61,17 +54,13 @@ def get_all_binance(symbol, kline_size, save=True, client=Client()):
     Original code from: https://medium.com/swlh/retrieving-full-historical-data-for-every-cryptocurrency-on-binance-bitmex-using-the-python-apis-27b47fd8137f
 
     Args:
-      symbol (str):
-        Trading pair (ex: BTCUSDT).
-      kline_size (str):
-        A frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
-      save (bool):
-        Save the results in ./history/ to improve the retreive waiting time.
-      client (Binance.Client) (optional):
-        Binance Client object.
+      symbol (str): Trading pair (ex: BTCUSDT).
+      kline_size (str): A frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
+      save (bool): Save the results in ./history/ to improve the retreive waiting time.
+      client (Binance.Client) (optional): Binance Client object.
 
     Returns:
-        pd.DataFrame: OHLCV data for all
+      pd.DataFrame: OHLCV data for all
 
     """
 
@@ -112,14 +101,10 @@ def get_nbars_binance(symbol, interval, nbars, client):
     """Getting histrical price data through binance api by interval arg.
 
     Args:
-      symbol (str):
-        Trading pair (ex: BTCUSDT).
-      interval (list):
-        A datetime sequence.
-      nbars (int):
-        The number you want to get data.
-      client (Binance.Client) (optional):
-        Binance Client object.
+      symbol (str): Trading pair (ex: BTCUSDT).
+      interval (str): A frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d")
+      nbars (int): The number of row data
+      client (Binance.Client) (optional): Binance Client object.
 
     Returns:
         pd.DataFrame: OHLCV data for all
@@ -149,14 +134,10 @@ def get_all_bitmex(symbol, kline_size, save=True, client=None):
     Original code from: https://medium.com/swlh/retrieving-full-historical-data-for-every-cryptocurrency-on-binance-bitmex-using-the-python-apis-27b47fd8137f
 
     Args:
-      symbol (str):
-        Trading pair (ex: BTCUSDT).
-      kline_size (str):
-        A Frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d").
-      save (bool):
-        Save the results in ./history/ to improve the retreive waiting time.
-      client (Binance.Client) (optional):
-        Binance Client object.
+      symbol (str): Trading pair (ex: BTCUSDT).
+      kline_size (str): A Frequency of the price data (ex: "1m", "5m",'15m', '30m', "1h", '2h', "4h", "1d").
+      save (bool): Save the results in ./history/ to improve the retreive waiting time.
+      client (Binance.Client) (optional): Binance Client object.
 
     Returns:
       pd.DataFrame: OHLCV data for all.
@@ -212,8 +193,7 @@ class GlassnodeClient:
         """Api key setting.
 
         Args:
-          value (str):
-            Your Glassnode api
+          value (str): Glassnode api
 
         """
         self._api_key = value
@@ -222,14 +202,10 @@ class GlassnodeClient:
         """Crawler settings.
 
         Args:
-          url (str):
-            Glassnode url (ex: https://api.glassnode.com/v1/metrics/indicators/sopr).
-          a (str):
-            Symbol (ex:'BTC').
-          i (str):
-            Data time period unit.
-          c (str):
-            format (ex:'native').
+          url (str): Glassnode url (ex: https://api.glassnode.com/v1/metrics/indicators/sopr).
+          a (str): Symbol (ex:'BTC').
+          i (str): Data time period unit.
+          c (str): format (ex:'native').
 
         Returns:
           pd.DataFrame: OHLCV data for all.

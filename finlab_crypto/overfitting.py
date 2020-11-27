@@ -29,8 +29,7 @@ class CSCV(object):
         """Add daily_returns in algorithm.
 
         Args:
-          daily_returns:
-            A dataframe of trading daily_returns.
+          daily_returns: A dataframe of trading daily_returns.
 
         """
         bin_size = daily_returns.shape[0] // self.n_bins
@@ -52,22 +51,15 @@ class CSCV(object):
         Display related analysis charts.
 
         Args:
-          plot:
-            A bool of control plot display.
-            Default is False.
+          plot: A bool of control plot display. Default is False.
 
         Returns:
           A dict of result include:
-          pbo_test:
-            A float of overfitting probability.
-          logits:
-            A float of estimated logits of OOS rankings.
-          R_n_star:
-            A list of IS performance of th trategies that has the best ranking in IS.
-          R_bar_n_star:
-            A list of find the OOS performance of the strategies that has the best ranking in IS.
-          dom_df:
-            A dataframe of optimized_IS, non_optimized_OOS data.
+          pbo_test: A float of overfitting probability.
+          logits: A float of estimated logits of OOS rankings.
+          R_n_star: A list of IS performance of th trategies that has the best ranking in IS.
+          R_bar_n_star: A list of find the OOS performance of the strategies that has the best ranking in IS.
+          dom_df: A dataframe of optimized_IS, non_optimized_OOS data.
 
         """
         # calculate strategy performance in IS(R_df) and OOS(R_bar_df)
