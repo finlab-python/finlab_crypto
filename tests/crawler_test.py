@@ -41,7 +41,7 @@ class TestCrawlerMethods(unittest.TestCase):
         def get_glassnode(url, api_key):
 
             gn = GlassnodeClient()
-            gn.set_api_key(api_key)
+            gn.api_key = api_key
             ret = gn.get(url)
             return ret.astype(float)
 
