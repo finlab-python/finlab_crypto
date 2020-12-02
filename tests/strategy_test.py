@@ -1,4 +1,4 @@
-from finlab_crypto import Strategy, Filter
+from finlab_crypto.strategy import Strategy, Filter
 from datetime import timezone
 import finlab_crypto
 import pandas as pd
