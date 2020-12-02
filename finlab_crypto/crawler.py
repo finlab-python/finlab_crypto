@@ -183,13 +183,14 @@ class GlassnodeClient:
     """
 
     def __init__(self):
-        self._api_key = ''
+        self.api_key = ''
 
     @property
     def api_key(self):
         return self._api_key
 
-    def set_api_key(self, value):
+    @api_key.setter
+    def api_key(self, value):
         """Api key setting.
 
         Args:
