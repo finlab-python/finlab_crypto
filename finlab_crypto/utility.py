@@ -99,7 +99,7 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
     # check for stop_vars
     length = -1
     for s, slist in stop_vars.items():
-        if s not in ['sl_stop', 'ts_stop', 'tp_stop']:
+        if s not in {'sl_stop', 'ts_stop', 'tp_stop'}:
             raise Exception(f'variable { s } is not one of the stop variables'
                              ': sl_stop, ts_stop, or tp_stop')
         if not isinstance(slist, Iterable):
