@@ -280,7 +280,7 @@ class Strategy(object):
     def backtest(self, ohlcv, variables=dict(),
                  filters=dict(), lookback=None, plot=False,
                  signals=False, side='long', cscv_nbins=10,
-                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, **args):
+                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='open', **args):
 
         """Backtest analysis tool set.
         Use vectorbt as base module to create numerical operations features.
@@ -308,6 +308,8 @@ class Strategy(object):
             Default is None.
           compounded: use compounded return as result of backtesting
             Default is True
+          execution_price: price for trading operation ('open' or 'close').
+            Default is 'open'
           **args:
             Other parameters.
 
@@ -353,7 +355,7 @@ class Strategy(object):
                 args['size'] = vbt.defaults.portfolio['init_cash'] /  ohlcv_lookback.close[0]
 
             portfolio = vbt.Portfolio.from_signals(
-                ohlcv_lookback.close, entries.fillna(False), exits.fillna(False), **args)
+                ohlcv_lookback[execution_price], entries.fillna(False), exits.fillna(False), **args)
 
         elif side == 'short':
             raise Exception('Shorting is not support yet')
