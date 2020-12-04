@@ -77,7 +77,10 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
-Version 0.2.2
+Version 0.2.3
+* fix execution price issue
+
+Version 0.2.2: not stable
 * improve syntax
 * add execution price for strategy
 
