@@ -25,22 +25,20 @@ def is_evalable(obj):
 def remove_pd_object(d):
     ret = {}
     for n, v in d.items():
-        if not isinstance(v, pd.Series) and not isinstance(v, pd.DataFrame) and not callable(v) and is_evalable(v):
-            ret[n] = v
-        elif isinstance(v, str):
+        if ((not isinstance(v, pd.Series) and not isinstance(v, pd.DataFrame) and not callable(v) and is_evalable(v))
+            or isinstance(v, str)):
             ret[n] = v
     return ret
 
 def enumerate_variables(variables):
 
-    if len(variables) == 0:
+    if not variables:
         return []
 
     enumeration_name = []
     enumeration_vars = []
 
-    constant_name = []
-    constant_vars = []
+    constant_d = {}
 
     for name, v in variables.items():
         if (isinstance(v, Iterable) and not isinstance(v, str)
@@ -50,11 +48,9 @@ def enumerate_variables(variables):
             enumeration_name.append(name)
             enumeration_vars.append(v)
         else:
-            constant_name.append(name)
-            constant_vars.append(v)
+            constant_d[name] = v
 
-    variable_enumerations = [dict(**dict(zip(enumeration_name, ps)),
-                                  **dict(zip(constant_name, constant_vars)))
+    variable_enumerations = [dict(**dict(zip(enumeration_name, ps)), **constant_d)
                              for ps in list(product(*enumeration_vars))]
 
     return variable_enumerations
@@ -85,7 +81,7 @@ def enumerate_signal(ohlcv, strategy, variables, ):
     param_names = list(eval(entries.columns[0]).keys())
     arrays = ([entries.columns.map(lambda s: eval(s)[p]) for p in param_names])
     tuples = list(zip(*arrays))
-    if len(tuples) != 0:
+    if tuples:
         columns = pd.MultiIndex.from_tuples(tuples, names=param_names)
         exits.columns = columns
         entries.columns = columns
@@ -98,8 +94,9 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
 
     # check for stop_vars
     length = -1
+    stop_vars_set = {'sl_stop', 'ts_stop', 'tp_stop'}
     for s, slist in stop_vars.items():
-        if s not in {'sl_stop', 'ts_stop', 'tp_stop'}:
+        if s not in stop_vars_set:
             raise Exception(f'variable { s } is not one of the stop variables'
                              ': sl_stop, ts_stop, or tp_stop')
         if not isinstance(slist, Iterable):
