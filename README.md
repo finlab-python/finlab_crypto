@@ -77,6 +77,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Verison 0.2.4
+* fix entry price online.py
+
 Version 0.2.3
 * fix execution price issue
 
