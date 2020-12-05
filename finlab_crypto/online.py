@@ -222,9 +222,10 @@ class TradingPortfolio():
                 value_in_btc = 0
                 if signal:
                     txn = result.positions().records
-                    return_ = txn.iloc[-1]['return']
-                    entry_price = txn.iloc[-1]['entry_price']
-                    entry_time = ohlcv.index[int(txn.iloc[-1]['entry_idx'])]
+                    rds = result.orders().records
+                    return_ = ohlcv.close.iloc[-1] / rds['price'].iloc[-1] - 1
+                    entry_price = rds['price'].iloc[-1]
+                    entry_time = ohlcv.index[int(rds.iloc[-1]['idx'])]
 
                     base_asset = self.ticker_info.get_base_asset(symbol)
                     if base_asset != self.quote_asset:
