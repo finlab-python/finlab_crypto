@@ -277,8 +277,8 @@ class Strategy(object):
         exits = exits.squeeze()
         return entries, exits
 
-    def backtest(self, ohlcv, variables=dict(),
-                 filters=dict(), lookback=None, plot=False,
+    def backtest(self, ohlcv, variables=None,
+                 filters=None, lookback=None, plot=False,
                  signals=False, side='long', cscv_nbins=10,
                  cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='close', **args):
 
@@ -289,9 +289,9 @@ class Strategy(object):
         Args:
           ohlcv: A dataframe of your trading target.
           variables: A dict of your customized strategy Attributes.
-            Default is empty dict.
+            Default is None.
           filters: A dict of your customized filter Attributes.
-            Default is empty dict.
+            Default is None.
           lookback: A int of slice that you want to get recent ohlcv.
             Default is None.
           plot: A bool of control plot display.
@@ -322,8 +322,10 @@ class Strategy(object):
             "side should be 'long' or 'short'":if side is not 'short' or 'long'.
 
         """
-        variables_without_stop = copy.copy(variables)
+        variables = variables or dict()
+        filters = filters or dict()
 
+        variables_without_stop = copy.copy(variables)
         exit_vars = ['sl_stop', 'ts_stop', 'tp_stop']
         stop_vars = {}
         for e in exit_vars:
