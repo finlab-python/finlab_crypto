@@ -55,7 +55,7 @@ class TestOnlineMethods(unittest.TestCase):
             lookback=1000,
             strategy=trend_strategy,
             variables={'name': 'sma', 'n1': 30, 'n2': 130},
-            weight_btc=0.01,
+            weight_btc={'default': 0.01, 'ADABTC': 0.02},
             name='altcoin-trend-strategy-2020-10-31',
         )
 

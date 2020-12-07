@@ -216,7 +216,13 @@ class TradingPortfolio():
 
                 signal = result.cash().iloc[-1] == 0
                 return_ = 0
+
+                # find weight_btc if it is in the nested dictionary
                 weight_btc = method.weight_btc
+                if isinstance(weight_btc, dict):
+                    weight_btc = (weight_btc[symbol]
+                        if symbol in weight_btc else weight_btc['default'])
+
                 entry_price = 0
                 entry_time = 0
                 value_in_btc = 0
@@ -238,19 +244,11 @@ class TradingPortfolio():
 
                     value_in_btc = weight_btc / quote_asset_price_previous * quote_asset_price_now
 
-                if isinstance(method.weight_btc, dict):
-                    if symbol in method.weight_btc:
-                        weight = method.weight_btc[symbol]
-                    else:
-                        weight = method.weight_btc['default']
-                else:
-                    weight = method.weight_btc
-
                 ret.append({
                     'symbol': symbol,
                     'method name': method.name,
                     'latest_signal': signal,
-                    'weight_btc': weight,
+                    'weight_btc': weight_btc,
                     'freq': method.freq,
                     'return': return_,
                     'value_in_btc': value_in_btc * signal,
@@ -545,11 +543,17 @@ class TradingPortfolio():
                 result = method.strategy.backtest(ohlcv,
                                                   method.variables, filters=method.filters, freq=method.freq)
                 ret[method.name + '-' + symbol + '-' + method.freq] = result.cumulative_returns
+
+                weight_btc = method.weight_btc
+                if isinstance(weight_btc, dict):
+                    weight_btc = (weight_btc[symbol]
+                        if symbol in weight_btc else weight_btc['default'])
+
                 full_results.append({
                     'name': method.name,
                     'symbol': symbol,
                     'freq': method.freq,
-                    'weight': method.weight_btc,
+                    'weight': weight_btc,
                     'portfolio': result,
                     'trading_method': method,
                     'signal': result.cash().iloc[-1] == 0,
@@ -613,11 +617,17 @@ class TradingPortfolio():
                 ohlcv = ohlcvs[(symbol, method.freq)]
                 result = method.strategy.backtest(ohlcv,
                                                   method.variables, filters=method.filters, freq=method.freq)
+                # find weight_btc if it is in the nested dictionary
+                weight_btc = method.weight_btc
+                if isinstance(weight_btc, dict):
+                    weight_btc = (weight_btc[symbol]
+                        if symbol in weight_btc else weight_btc['default'])
+
                 results.append({
                     'name': method.name,
                     'symbol': symbol,
                     'freq': method.freq,
-                    'weight': method.weight_btc,
+                    'weight': weight_btc,
                     'portfolio': result,
                     'trading_method': method,
                     'signal': result.cash().iloc[-1] == 0,
