@@ -49,8 +49,8 @@ class Filter(object):
         self.func = None
         self._variables = None
         self.filters = {}
-        self.set_parameters(default_parameters)
         self._default_parameters = default_parameters
+        self.set_parameters(default_parameters)
 
     def __call__(self, func):
         """decorator function
@@ -143,8 +143,8 @@ class Strategy(object):
         """inits strategy."""
         self.filters = {}
         self._variables = None
-        self.set_parameters(default_parameters)
         self._default_parameters = default_parameters
+        self.set_parameters(default_parameters)
 
     def __call__(self, func):
         """decorator function
