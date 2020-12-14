@@ -10,6 +10,7 @@ Develop and verify crypto trading strategies at a glance.
 * Analaysis the probability of overfitting ([combinatorially symmetric cross validation](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf))
 * Easy to deploy strategies on google cloud functions
 * Colab and Jupyter compatable
+* [10 hours trading bot online course](https://hahow.in/cr/crypto-python)
 
 ## Installation
 ```
@@ -77,6 +78,10 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.5
+* fix weight_btc error
+* fix strategy mutable input
+
 Verison 0.2.4
 * fix entry price online.py
 
