@@ -8,23 +8,12 @@ import vectorbt as vbt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-import numbers
 import copy
 import os
 
 from . import chart
 from . import overfitting
 
-
-def crossover(s1, s2):
-    if isinstance(s2, numbers.Number):
-        return (s1 > s2) & (s1.shift() < s2)
-    return (s1 > s2) & (s1.shift() < s2.shift()) 
-
-def crossunder(s1, s2):
-    if isinstance(s2, numbers.Number):
-        return (s1 < s2) & (s1.shift() > s2)
-    return (s1 < s2) & (s1.shift() > s2.shift()) 
 
 def is_evalable(obj):
     try:
@@ -57,10 +46,7 @@ def enumerate_variables(variables):
             and not isinstance(v, pd.DataFrame)):
 
             enumeration_name.append(name)
-            if (isinstance(v, np.ndarray)):
-                enumeration_vars.append(v.tolist())
-            else:
-                enumeration_vars.append(v)
+            enumeration_vars.append(v)
         else:
             constant_d[name] = v
 
