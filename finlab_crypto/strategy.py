@@ -70,10 +70,6 @@ class Filter(object):
           variables: a dict of your customized filter attributes.
 
         """
-        if self._default_parameters:
-            for key, val in self._default_parameters.items():
-                setattr(self, key, val)
-
         if variables:
             for key, val in variables.items():
                 setattr(self, key, val)
@@ -170,11 +166,6 @@ class Strategy(object):
         for svar in stop_vars:
             if hasattr(self, svar):
                 delattr(self, svar)
-
-        # set defualt variables
-        if self._default_parameters:
-            for key, val in self._default_parameters.items():
-                setattr(self, key, val)
 
         # set custom variables
         if variables:
