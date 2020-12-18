@@ -317,10 +317,8 @@ class TradingPortfolio():
             'margin_p': margin_position * asset_price_in_btc,
             'estimate_p': algo_value_in_btc + margin_position * asset_price_in_btc,
             'present_p': position * asset_price_in_btc,
-            'difference': (algo_value_in_btc + margin_position * asset_price_in_btc).clip(0,
-                                                                                          None) - position * asset_price_in_btc,
-            'rebalance_threshold': (
-                                               algo_value_in_btc + margin_position * asset_price_in_btc).abs() * rebalance_threshold,
+            'difference': (algo_value_in_btc + margin_position * asset_price_in_btc).clip(0,None) - position * asset_price_in_btc,
+            'rebalance_threshold': (algo_value_in_btc + margin_position * asset_price_in_btc).abs() * rebalance_threshold,
         })
         diff_value_btc['rebalance'] = diff_value_btc['difference'].abs() > diff_value_btc['rebalance_threshold']
         diff_value_btc.loc[quote_asset_list, 'rebalance'] = True
