@@ -145,7 +145,7 @@ class TestOnlineMethods(unittest.TestCase):
         self.assertEqual((position_btc.estimate_p.clip(0, None) - position_btc.present_p == position_btc.difference).all(),True)
 
         # test rebalance_threshold
-        self.assertEqual((position_btc.rebalance_threshold == position_btc.estimate_p * 0.03).all(), True)
+        self.assertEqual((position_btc.rebalance_threshold == position_btc.estimate_p.abs() * 0.03).all(), True)
 
         # test excluded
         all_symbols = list(
