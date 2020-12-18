@@ -71,6 +71,7 @@ def linear_reg(price, n):
 trends = {
     'sma': sma,
     'wma': wma,
+    'highpass' : highpass,
     'lowpass': lowpass,
     'hullma': hullma,
     'zlma': zlma,
