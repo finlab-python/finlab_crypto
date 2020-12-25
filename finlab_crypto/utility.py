@@ -168,10 +168,11 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
                           figures=figures, markerlines=mark_lines,
                           start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1])
     c.load_javascript()
-    if html is not None:          
-        c.render(html)
+    c.render()
+    
+    if html is not None:
+        os.rename('render.html', html)
     else:
-        c.render(html)
         display(HTML(filename='render.html'))
 
     return 
