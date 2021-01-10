@@ -39,6 +39,8 @@ class TestStrategyMethods(unittest.TestCase):
             sma2 = ohlcv.close.rolling(20).mean()
             return (sma1 > sma2), (sma2 > sma1)
 
+        sma_strategy.show_parameters()
+
         ohlcv = self.ohlcv
         sma1 = ohlcv.close.rolling(10).mean()
         sma2 = ohlcv.close.rolling(20).mean()
@@ -59,6 +61,7 @@ class TestStrategyMethods(unittest.TestCase):
             sma2 = ohlcv.close.rolling(sma_strategy.n2).mean()
             return (sma1 > sma2), (sma2 > sma1)
 
+        sma_strategy.show_parameters()
         ohlcv = self.ohlcv
 
         sma1 = ohlcv.close.rolling(10).mean()
@@ -81,6 +84,7 @@ class TestStrategyMethods(unittest.TestCase):
             sma2 = ohlcv.close.rolling(sma_strategy.n2).mean()
             return (sma1 > sma2), (sma2 > sma1)
 
+        sma_strategy.show_parameters()
         ohlcv = self.ohlcv
 
         sma1 = ohlcv.close.rolling(10).mean()
@@ -104,6 +108,7 @@ class TestStrategyMethods(unittest.TestCase):
             sma2 = ohlcv.close.rolling(sma_strategy.n2).mean()
             return (sma1 > sma2), (sma2 > sma1)
 
+        sma_strategy.show_parameters()
         ohlcv = self.ohlcv
 
         sma1 = ohlcv.close.rolling(10).mean()
@@ -125,6 +130,7 @@ class TestStrategyMethods(unittest.TestCase):
             sma2 = ohlcv.close.rolling(sma_strategy.n2).mean()
             return (sma1 > sma2), (sma2 > sma1)
 
+        sma_strategy.show_parameters()
         ohlcv = self.ohlcv
 
         sma1 = ohlcv.close.rolling(10).mean()

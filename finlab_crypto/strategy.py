@@ -47,7 +47,6 @@ class Filter(object):
     def __init__(self, **default_parameters):
         """inits filter."""
         self.func = None
-        self._variables = None
         self.filters = {}
         self._default_parameters = default_parameters
         self.set_parameters(default_parameters)
@@ -78,10 +77,12 @@ class Filter(object):
             for key, val in variables.items():
                 setattr(self, key, val)
 
-        self._variables = variables
 
     def show_parameters(self):
-        print(self._variables)
+        parameters = {}
+        for key, val in self._default_parameters.items():
+            parameters[key] = getattr(self, key)
+        print(parameters)
 
     def create(self, variables=None):
         """generate filter signals, fig_data.
@@ -142,7 +143,6 @@ class Strategy(object):
     def __init__(self, **default_parameters):
         """inits strategy."""
         self.filters = {}
-        self._variables = None
         self._default_parameters = default_parameters
         self.set_parameters(default_parameters)
 
@@ -181,10 +181,11 @@ class Strategy(object):
             for key, val in variables.items():
                 setattr(self, key, val)
 
-        self._variables = variables
-
     def show_parameters(self):
-        print(self._variables)
+        parameters = {}
+        for key, val in self._default_parameters.items():
+            parameters[key] = getattr(self, key)
+        print(parameters)
 
     @staticmethod
     def _enumerate_filters(ohlcv, filters):

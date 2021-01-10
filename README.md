@@ -78,6 +78,10 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.6
+* fix version of pandas==1.1.5, since pandas==1.2.0 is not compatable with vectorbt
+* fix show_parameters function in Strategy and Filter
+
 Version 0.2.5
 * fix weight_btc error
 * fix strategy mutable input
