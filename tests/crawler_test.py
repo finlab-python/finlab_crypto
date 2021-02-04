@@ -34,7 +34,7 @@ class TestCrawlerMethods(unittest.TestCase):
         for i in [10, 100, 300, 1000]:
             ohlcv = finlab_crypto.crawler.get_nbars_binance('ADAUSDT', '4h', i, client=client)
             self.assertEqual(len(ohlcv) >= i, True)
-            time.sleep(1)
+            time.sleep(3)
 
     def test_glassnode_api(self):
 

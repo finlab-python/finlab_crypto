@@ -1,4 +1,5 @@
 import sys
+import time
 import plotly.express as px
 import pandas as pd
 import datetime
@@ -122,6 +123,10 @@ class TradingPortfolio():
         self._margins = {}
         self.ticker_info = TickerInfo(self._client)
         self.quote_asset = 'BTC'
+        self.default_stable_coin = 'USDT'
+
+    def set_default_stable_coin(self, token):
+        self.default_stable_coin = token
 
     def register(self, trading_method):
         """Rigister TradingMethod object.
@@ -188,6 +193,7 @@ class TradingPortfolio():
 
         for (symbol, freq), lookback in symbol_lookbacks.items():
             ohlcvs[(symbol, freq)] = get_all_binance(symbol, freq)
+            time.sleep(3)
         return ohlcvs
 
     def get_latest_signals(self, ohlcvs, html=False):
@@ -276,8 +282,8 @@ class TradingPortfolio():
           diff_value_btc: A dataframe of converting cryptocurrency to BTC.
           transaction: A dataframe of transaction(new order) data.
         """
-        if 'USDT' not in excluded_assets:
-            excluded_assets.append('USDT')
+        if self.default_stable_coin not in excluded_assets:
+            excluded_assets.append(self.default_stable_coin)
 
         signals['base_asset'] = signals.symbol.map(self.ticker_info.get_base_asset)
         signals['quote_asset'] = signals.symbol.map(self.ticker_info.get_quote_asset)
@@ -372,16 +378,17 @@ class TradingPortfolio():
                     txn_btc[symbol] = amount
                     break
 
-        # assumption: usdt can be a quote asset for all alt-coins
+        # assumption: self.default_stable_coin can be the quote asset for all alt-coins
         transaction_btc = increase_asset_amount.append(decrease_asset_amount)
-        transaction_btc.index = transaction_btc.index + 'USDT'
+        transaction_btc.index = transaction_btc.index + self.default_stable_coin
 
-        if 'USDTUSDT' in transaction_btc.index:
-            transaction_btc.pop('USDTUSDT')
+        if self.default_stable_coin in transaction_btc.index:
+            transaction_btc.pop(self.default_stable_coin+self.default_stable_coin)
 
         transaction_btc = transaction_btc.append(pd.Series(txn_btc))
 
         transaction = transaction_btc.to_frame(name='value_in_btc')
+        print(transaction)
         transaction['base_asset'] = transaction.index.map(self.ticker_info.get_base_asset)
         transaction['quote_asset'] = transaction.index.map(self.ticker_info.get_quote_asset)
         transaction['value'] = transaction['value_in_btc'] / transaction.base_asset.map(
@@ -403,7 +410,7 @@ class TradingPortfolio():
         verify = (verify_assets / diff_value_btc.difference.reindex(verify_assets.index) - 1).abs() < 0.001
 
         try:
-            assert verify[verify.index != 'USDT'].all()
+            assert verify[verify.index != self.default_stable_coin].all()
         except:
             print(diff_value_btc)
             print(transaction)
