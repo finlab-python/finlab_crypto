@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.1" />
+<title>finlab_crypto.chart API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>finlab_crypto.chart</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">from pyecharts.globals import CurrentConfig, NotebookType
+from pyecharts.charts import Kline, Line, Grid, Bar
+CurrentConfig.NOTEBOOK_TYPE = NotebookType.JUPYTER_LAB
+
+import pyecharts.options as opts
+import numpy as np
+import pandas as pd
+from pyecharts.charts import Candlestick
+
+def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=[], start_date=None, end_date=None):
+    &#34;&#34;&#34;Backtesting Analysis and optimizer dashboard platform.
+
+    Use pyechart and seaborn module to generate interactive variety charts.
+
+    Args:
+      dfstock: A dataframe of trading target data.
+      overlaps: A dict of overlaps indicator line setting in figure.
+      figures: A dict of information needed for picture drawing.
+      markers: A dict of which dfstock index needed to be mark.
+      markerlines: A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.
+      start_date: A datetime value of the start of dfstock.
+      end_date: A datetime value of the end of dfstock .
+
+    Returns:
+      grid_chart: chart display.
+      chart_size: A dict of chart&#39;s height and width values.
+
+    &#34;&#34;&#34;
+    title = 60
+    title_margin_top = 30
+    main_chart_height = 300
+    margin_left = 50
+    vol_chart_height = 50
+    sub_figure_height = 60
+    width = 800
+
+    dfstock = dfstock.loc[start_date:end_date]
+
+    mark_data = []
+    for mark in markers:
+
+        if mark[1] not in dfstock.index:
+          continue
+
+        x = np.where(dfstock.index == mark[1])[0][0]
+        y = dfstock.high.loc[mark[1]]
+        color = &#39;#1d6ff2&#39;
+        o = opts.MarkPointItem(coord=[float(x), y], value=mark[0], itemstyle_opts=opts.ItemStyleOpts(color=color))
+        mark_data.append(o)
+
+    modified_marklines = []
+    for markline in markerlines:
+        name, x, y = markline
+        if x[0] not in dfstock.index or x[1] not in dfstock.index:
+          continue
+        xx0 = np.where(dfstock.index == x[0])[0][0]
+        xx1 = np.where(dfstock.index == x[1])[0][0]
+        x = [float(xx0), float(xx1)]
+        modified_marklines.append([
+        {
+            &#39;name&#39;: name,
+            &#39;coord&#39;: [x[0], y[0]],
+            &#39;itemStyle&#39;: {&#39;color&#39;: &#39;#216dc4&#39;}
+        },
+        {
+            &#39;coord&#39;: [x[1], y[1]]
+        }
+        ])
+
+    #for m in modified_marklines:
+    #  print(m.opts)
+    #  print(&#39;------&#39;)
+
+    # mark_data += [
+    #     opts.MarkPointItem(type_=&#34;max&#34;, name=&#34;最大值&#34;, symbol=&#39;rect&#39;, symbol_size=[50, 20],
+    #                        itemstyle_opts=opts.ItemStyleOpts(color=&#39;rgba(0,0,0,0.3)&#39;)
+    #                       ),
+    #     opts.MarkPointItem(type_=&#34;min&#34;, name=&#34;最小值&#34;, symbol=&#39;rect&#39;, symbol_size=[50, 20],
+    #                        itemstyle_opts=opts.ItemStyleOpts(color=&#39;rgba(0,0,0,0.3)&#39;)
+    #     )
+    # ]
+
+    kline = (
+        Kline()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+        .add_yaxis(
+            series_name=&#34;klines&#34;,
+            y_axis=dfstock[[&#39;open&#39;, &#39;close&#39;, &#39;low&#39;, &#39;high&#39;]].values.tolist(),
+            markpoint_opts=opts.MarkPointOpts(
+                data=mark_data
+            ),
+            markline_opts=opts.MarkLineOpts(
+                data=modified_marklines,
+                label_opts={&#39;position&#39;:&#39;insideMiddleTop&#39;, &#39;show&#39;: False}
+            ),
+            itemstyle_opts=opts.ItemStyleOpts(
+                color=&#34;#ff6183&#34;,
+                color0=&#34;#58d6ac&#34;,
+                border_color=&#34;#ff6183&#34;,
+                border_color0=&#34;#58d6ac&#34;,
+            ),
+        )
+        .set_series_opts()
+    )
+
+    #################
+    # overlap chart
+    #################
+
+    overlap_chart = (
+        Line()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+    )
+    for name, o in overlaps.items():
+        overlap_chart.add_yaxis(
+            series_name=name,
+            y_axis=o.loc[start_date:end_date].to_list(),
+            is_smooth=True,
+            is_hover_animation=False,
+            linestyle_opts=opts.LineStyleOpts(opacity=0.5),
+            label_opts=opts.LabelOpts(is_show=False),
+        )
+
+    # Bar-1
+    bar_1 = (
+        Bar()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+        .add_yaxis(
+            series_name=&#34;volume&#34;,
+            yaxis_data=dfstock.volume.loc[start_date:end_date].to_list(),
+            xaxis_index=1,
+            yaxis_index=1,
+            label_opts=opts.LabelOpts(is_show=False),
+            # 改进后在 grid 中 add_js_funcs 后变成如下
+            itemstyle_opts=opts.ItemStyleOpts(
+                color=&#39;rgba(0,0,0,0.2)&#39;,
+            ),
+        )
+        .set_global_opts(
+            xaxis_opts=opts.AxisOpts(
+                type_=&#34;category&#34;,
+                grid_index=1,
+                axislabel_opts=opts.LabelOpts(is_show=False),
+            ),
+            yaxis_opts=opts.AxisOpts(
+                axislabel_opts=opts.LabelOpts(is_show=False),
+            ),
+            legend_opts=opts.LegendOpts(is_show=False),
+        )
+    )
+
+
+    #################
+    # indicators
+    #################
+
+    def is_item(item):
+        return isinstance(item, pd.Series) or isinstance(item, tuple)
+
+    def item_to_chart(name, item):
+
+        if isinstance(item, pd.Series):
+            item_type = &#39;line&#39;
+            series = item.loc[start_date:end_date]
+        elif isinstance(item, tuple):
+            item_type = item[1]
+            series = item[0].loc[start_date:end_date]
+        else:
+            print(&#39;Object type not accept (only pd.Series or tuple)&#39;)
+            raise
+
+        values = series.to_list()
+        index = series.index.astype(str).to_list()
+
+        chart = None
+        if item_type == &#39;line&#39;:
+            chart = Line()
+            chart.add_xaxis(xaxis_data=index)
+            chart.add_yaxis(series_name=name,
+                y_axis=values,
+                is_hover_animation=False,
+                #linestyle_opts=opts.LineStyleOpts(width=3, opacity=0.5),
+                label_opts=opts.LabelOpts(is_show=False),
+            )
+        elif item_type == &#39;bar&#39;:
+            chart = Bar()
+            chart.add_xaxis(xaxis_data=index)
+            chart.add_yaxis(
+                series_name=name,
+                yaxis_data=values,
+                #xaxis_index=1,
+                #yaxis_index=1,
+                label_opts=opts.LabelOpts(is_show=False),
+            )
+
+        return chart
+
+    example_charts = []
+    for name, graph in figures.items():
+        if is_item(graph):
+            example_charts.append(item_to_chart(name, graph))
+        elif isinstance(graph, dict) or isinstance(graph, pd.DataFrame):
+            ys = [item_to_chart(name, subgraph) for name, subgraph in graph.items()]
+            for y in ys[1:]:
+                ys[0].overlap(y)
+            example_charts.append(ys[0])
+        else:
+            raise Exception(&#39;cannot support subfigure type&#39;)
+
+    if len(dfstock) &lt;= 500:
+        range_start = 0
+    else:
+        range_start =  95#100 - int(10000/len(dfstock))
+
+    kline.set_global_opts(
+            legend_opts=opts.LegendOpts(pos_top=&#39;0px&#39;, pos_left=str(margin_left)),
+            xaxis_opts=opts.AxisOpts(is_scale=True),
+            yaxis_opts=opts.AxisOpts(
+                is_scale=True,
+                splitarea_opts=opts.SplitAreaOpts(
+                    is_show=True, areastyle_opts=opts.AreaStyleOpts(opacity=0.3)
+                ),
+                #grid_index=1,
+                #split_number=3,
+                axisline_opts=opts.AxisLineOpts(is_on_zero=False),
+                #axistick_opts=opts.AxisTickOpts(is_show=False),
+                splitline_opts=opts.SplitLineOpts(is_show=False),
+                axislabel_opts=opts.LabelOpts(is_show=True),
+            ),
+            datazoom_opts=[
+                opts.DataZoomOpts(
+                    is_show=False,
+                    type_=&#34;inside&#34;,
+                    xaxis_index=list(range(len(example_charts)+2)),
+                    range_start=range_start,
+                    range_end=100,
+                ),
+                opts.DataZoomOpts(
+                    is_show=True,
+                    xaxis_index=list(range(len(example_charts)+2)),
+                    type_=&#34;slider&#34;,
+                    pos_top=&#34;85%&#34;,
+                    range_start=range_start,
+                    range_end=100,
+                ),
+            ],
+            #title_opts=opts.TitleOpts(title=&#34;Kline-DataZoom-inside&#34;),
+        )
+
+    # Kline And Line
+    overlap_kline_line = kline.overlap(overlap_chart)
+
+    total_height = title + main_chart_height + len(example_charts) * (sub_figure_height + title) + 200
+
+    # Grid Overlap + Bar
+    grid_chart = Grid(
+        init_opts=opts.InitOpts(
+            width=str(width) + &#39;px&#39;,
+            height=str(total_height) + &#39;px&#39;,
+            animation_opts=opts.AnimationOpts(animation=False),
+        )
+    )
+    grid_chart.add(
+        overlap_kline_line,
+        grid_opts=opts.GridOpts(pos_top=str(title) + &#39;px&#39;,
+                                height=str(main_chart_height) + &#39;px&#39;,
+                                pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;),
+    )
+
+    grid_chart.add(
+        bar_1,
+        grid_opts=opts.GridOpts(pos_top=str(title+main_chart_height-vol_chart_height) + &#39;px&#39;,
+                                height=str(vol_chart_height) + &#39;px&#39;,
+                                pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;),
+    )
+
+    for i, chart in enumerate(example_charts):
+        title_pos_top = title + main_chart_height + i * (sub_figure_height + title)
+        chart.set_global_opts(
+                #title_opts=opts.TitleOpts(name, pos_top=str(title_pos_top+title_margin_top) + &#39;px&#39;),
+                legend_opts=opts.LegendOpts(pos_left=str(margin_left), pos_top=str(title_pos_top+title_margin_top) + &#39;px&#39;),
+            )
+        chart_pos_top = title_pos_top + title
+        grid_chart.add(
+            chart,
+            grid_opts=opts.GridOpts(pos_top=str(chart_pos_top) + &#39;px&#39;,
+                                    height=str(sub_figure_height) + &#39;px&#39;,
+                                    pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;
+                                   ),
+        )
+        chart_size = {&#39;height&#39;: total_height,  &#39;width&#39;: width}
+    return grid_chart, chart_size</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="finlab_crypto.chart.chart"><code class="name flex">
+<span>def <span class="ident">chart</span></span>(<span>dfstock, overlaps={}, figures={}, markers={}, markerlines=[], start_date=None, end_date=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Backtesting Analysis and optimizer dashboard platform.</p>
+<p>Use pyechart and seaborn module to generate interactive variety charts.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dfstock</code></strong></dt>
+<dd>A dataframe of trading target data.</dd>
+<dt><strong><code>overlaps</code></strong></dt>
+<dd>A dict of overlaps indicator line setting in figure.</dd>
+<dt><strong><code>figures</code></strong></dt>
+<dd>A dict of information needed for picture drawing.</dd>
+<dt><strong><code>markers</code></strong></dt>
+<dd>A dict of which dfstock index needed to be mark.</dd>
+<dt><strong><code>markerlines</code></strong></dt>
+<dd>A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.</dd>
+<dt><strong><code>start_date</code></strong></dt>
+<dd>A datetime value of the start of dfstock.</dd>
+<dt><strong><code>end_date</code></strong></dt>
+<dd>A datetime value of the end of dfstock .</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>grid_chart</code></dt>
+<dd>chart display.</dd>
+<dt><code>chart_size</code></dt>
+<dd>A dict of chart's height and width values.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=[], start_date=None, end_date=None):
+    &#34;&#34;&#34;Backtesting Analysis and optimizer dashboard platform.
+
+    Use pyechart and seaborn module to generate interactive variety charts.
+
+    Args:
+      dfstock: A dataframe of trading target data.
+      overlaps: A dict of overlaps indicator line setting in figure.
+      figures: A dict of information needed for picture drawing.
+      markers: A dict of which dfstock index needed to be mark.
+      markerlines: A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.
+      start_date: A datetime value of the start of dfstock.
+      end_date: A datetime value of the end of dfstock .
+
+    Returns:
+      grid_chart: chart display.
+      chart_size: A dict of chart&#39;s height and width values.
+
+    &#34;&#34;&#34;
+    title = 60
+    title_margin_top = 30
+    main_chart_height = 300
+    margin_left = 50
+    vol_chart_height = 50
+    sub_figure_height = 60
+    width = 800
+
+    dfstock = dfstock.loc[start_date:end_date]
+
+    mark_data = []
+    for mark in markers:
+
+        if mark[1] not in dfstock.index:
+          continue
+
+        x = np.where(dfstock.index == mark[1])[0][0]
+        y = dfstock.high.loc[mark[1]]
+        color = &#39;#1d6ff2&#39;
+        o = opts.MarkPointItem(coord=[float(x), y], value=mark[0], itemstyle_opts=opts.ItemStyleOpts(color=color))
+        mark_data.append(o)
+
+    modified_marklines = []
+    for markline in markerlines:
+        name, x, y = markline
+        if x[0] not in dfstock.index or x[1] not in dfstock.index:
+          continue
+        xx0 = np.where(dfstock.index == x[0])[0][0]
+        xx1 = np.where(dfstock.index == x[1])[0][0]
+        x = [float(xx0), float(xx1)]
+        modified_marklines.append([
+        {
+            &#39;name&#39;: name,
+            &#39;coord&#39;: [x[0], y[0]],
+            &#39;itemStyle&#39;: {&#39;color&#39;: &#39;#216dc4&#39;}
+        },
+        {
+            &#39;coord&#39;: [x[1], y[1]]
+        }
+        ])
+
+    #for m in modified_marklines:
+    #  print(m.opts)
+    #  print(&#39;------&#39;)
+
+    # mark_data += [
+    #     opts.MarkPointItem(type_=&#34;max&#34;, name=&#34;最大值&#34;, symbol=&#39;rect&#39;, symbol_size=[50, 20],
+    #                        itemstyle_opts=opts.ItemStyleOpts(color=&#39;rgba(0,0,0,0.3)&#39;)
+    #                       ),
+    #     opts.MarkPointItem(type_=&#34;min&#34;, name=&#34;最小值&#34;, symbol=&#39;rect&#39;, symbol_size=[50, 20],
+    #                        itemstyle_opts=opts.ItemStyleOpts(color=&#39;rgba(0,0,0,0.3)&#39;)
+    #     )
+    # ]
+
+    kline = (
+        Kline()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+        .add_yaxis(
+            series_name=&#34;klines&#34;,
+            y_axis=dfstock[[&#39;open&#39;, &#39;close&#39;, &#39;low&#39;, &#39;high&#39;]].values.tolist(),
+            markpoint_opts=opts.MarkPointOpts(
+                data=mark_data
+            ),
+            markline_opts=opts.MarkLineOpts(
+                data=modified_marklines,
+                label_opts={&#39;position&#39;:&#39;insideMiddleTop&#39;, &#39;show&#39;: False}
+            ),
+            itemstyle_opts=opts.ItemStyleOpts(
+                color=&#34;#ff6183&#34;,
+                color0=&#34;#58d6ac&#34;,
+                border_color=&#34;#ff6183&#34;,
+                border_color0=&#34;#58d6ac&#34;,
+            ),
+        )
+        .set_series_opts()
+    )
+
+    #################
+    # overlap chart
+    #################
+
+    overlap_chart = (
+        Line()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+    )
+    for name, o in overlaps.items():
+        overlap_chart.add_yaxis(
+            series_name=name,
+            y_axis=o.loc[start_date:end_date].to_list(),
+            is_smooth=True,
+            is_hover_animation=False,
+            linestyle_opts=opts.LineStyleOpts(opacity=0.5),
+            label_opts=opts.LabelOpts(is_show=False),
+        )
+
+    # Bar-1
+    bar_1 = (
+        Bar()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+        .add_yaxis(
+            series_name=&#34;volume&#34;,
+            yaxis_data=dfstock.volume.loc[start_date:end_date].to_list(),
+            xaxis_index=1,
+            yaxis_index=1,
+            label_opts=opts.LabelOpts(is_show=False),
+            # 改进后在 grid 中 add_js_funcs 后变成如下
+            itemstyle_opts=opts.ItemStyleOpts(
+                color=&#39;rgba(0,0,0,0.2)&#39;,
+            ),
+        )
+        .set_global_opts(
+            xaxis_opts=opts.AxisOpts(
+                type_=&#34;category&#34;,
+                grid_index=1,
+                axislabel_opts=opts.LabelOpts(is_show=False),
+            ),
+            yaxis_opts=opts.AxisOpts(
+                axislabel_opts=opts.LabelOpts(is_show=False),
+            ),
+            legend_opts=opts.LegendOpts(is_show=False),
+        )
+    )
+
+
+    #################
+    # indicators
+    #################
+
+    def is_item(item):
+        return isinstance(item, pd.Series) or isinstance(item, tuple)
+
+    def item_to_chart(name, item):
+
+        if isinstance(item, pd.Series):
+            item_type = &#39;line&#39;
+            series = item.loc[start_date:end_date]
+        elif isinstance(item, tuple):
+            item_type = item[1]
+            series = item[0].loc[start_date:end_date]
+        else:
+            print(&#39;Object type not accept (only pd.Series or tuple)&#39;)
+            raise
+
+        values = series.to_list()
+        index = series.index.astype(str).to_list()
+
+        chart = None
+        if item_type == &#39;line&#39;:
+            chart = Line()
+            chart.add_xaxis(xaxis_data=index)
+            chart.add_yaxis(series_name=name,
+                y_axis=values,
+                is_hover_animation=False,
+                #linestyle_opts=opts.LineStyleOpts(width=3, opacity=0.5),
+                label_opts=opts.LabelOpts(is_show=False),
+            )
+        elif item_type == &#39;bar&#39;:
+            chart = Bar()
+            chart.add_xaxis(xaxis_data=index)
+            chart.add_yaxis(
+                series_name=name,
+                yaxis_data=values,
+                #xaxis_index=1,
+                #yaxis_index=1,
+                label_opts=opts.LabelOpts(is_show=False),
+            )
+
+        return chart
+
+    example_charts = []
+    for name, graph in figures.items():
+        if is_item(graph):
+            example_charts.append(item_to_chart(name, graph))
+        elif isinstance(graph, dict) or isinstance(graph, pd.DataFrame):
+            ys = [item_to_chart(name, subgraph) for name, subgraph in graph.items()]
+            for y in ys[1:]:
+                ys[0].overlap(y)
+            example_charts.append(ys[0])
+        else:
+            raise Exception(&#39;cannot support subfigure type&#39;)
+
+    if len(dfstock) &lt;= 500:
+        range_start = 0
+    else:
+        range_start =  95#100 - int(10000/len(dfstock))
+
+    kline.set_global_opts(
+            legend_opts=opts.LegendOpts(pos_top=&#39;0px&#39;, pos_left=str(margin_left)),
+            xaxis_opts=opts.AxisOpts(is_scale=True),
+            yaxis_opts=opts.AxisOpts(
+                is_scale=True,
+                splitarea_opts=opts.SplitAreaOpts(
+                    is_show=True, areastyle_opts=opts.AreaStyleOpts(opacity=0.3)
+                ),
+                #grid_index=1,
+                #split_number=3,
+                axisline_opts=opts.AxisLineOpts(is_on_zero=False),
+                #axistick_opts=opts.AxisTickOpts(is_show=False),
+                splitline_opts=opts.SplitLineOpts(is_show=False),
+                axislabel_opts=opts.LabelOpts(is_show=True),
+            ),
+            datazoom_opts=[
+                opts.DataZoomOpts(
+                    is_show=False,
+                    type_=&#34;inside&#34;,
+                    xaxis_index=list(range(len(example_charts)+2)),
+                    range_start=range_start,
+                    range_end=100,
+                ),
+                opts.DataZoomOpts(
+                    is_show=True,
+                    xaxis_index=list(range(len(example_charts)+2)),
+                    type_=&#34;slider&#34;,
+                    pos_top=&#34;85%&#34;,
+                    range_start=range_start,
+                    range_end=100,
+                ),
+            ],
+            #title_opts=opts.TitleOpts(title=&#34;Kline-DataZoom-inside&#34;),
+        )
+
+    # Kline And Line
+    overlap_kline_line = kline.overlap(overlap_chart)
+
+    total_height = title + main_chart_height + len(example_charts) * (sub_figure_height + title) + 200
+
+    # Grid Overlap + Bar
+    grid_chart = Grid(
+        init_opts=opts.InitOpts(
+            width=str(width) + &#39;px&#39;,
+            height=str(total_height) + &#39;px&#39;,
+            animation_opts=opts.AnimationOpts(animation=False),
+        )
+    )
+    grid_chart.add(
+        overlap_kline_line,
+        grid_opts=opts.GridOpts(pos_top=str(title) + &#39;px&#39;,
+                                height=str(main_chart_height) + &#39;px&#39;,
+                                pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;),
+    )
+
+    grid_chart.add(
+        bar_1,
+        grid_opts=opts.GridOpts(pos_top=str(title+main_chart_height-vol_chart_height) + &#39;px&#39;,
+                                height=str(vol_chart_height) + &#39;px&#39;,
+                                pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;),
+    )
+
+    for i, chart in enumerate(example_charts):
+        title_pos_top = title + main_chart_height + i * (sub_figure_height + title)
+        chart.set_global_opts(
+                #title_opts=opts.TitleOpts(name, pos_top=str(title_pos_top+title_margin_top) + &#39;px&#39;),
+                legend_opts=opts.LegendOpts(pos_left=str(margin_left), pos_top=str(title_pos_top+title_margin_top) + &#39;px&#39;),
+            )
+        chart_pos_top = title_pos_top + title
+        grid_chart.add(
+            chart,
+            grid_opts=opts.GridOpts(pos_top=str(chart_pos_top) + &#39;px&#39;,
+                                    height=str(sub_figure_height) + &#39;px&#39;,
+                                    pos_left=str(margin_left)+&#39;px&#39;, pos_right=&#39;0&#39;
+                                   ),
+        )
+        chart_size = {&#39;height&#39;: total_height,  &#39;width&#39;: width}
+    return grid_chart, chart_size</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="finlab_crypto" href="index.html">finlab_crypto</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="finlab_crypto.chart.chart" href="#finlab_crypto.chart.chart">chart</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
+</footer>
+</body>
+</html>
