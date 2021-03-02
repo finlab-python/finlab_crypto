@@ -138,11 +138,13 @@ class TestOnlineMethods(unittest.TestCase):
         self.assertEqual(position_btc.loc['BTC', 'algo_p'], 0.04)
         self.assertEqual(position_btc.loc['VET', 'algo_p'], 0.0101834862)
 
+        print(position_btc)
+
         # test estimate p
-        self.assertEqual((position_btc.algo_p + position_btc.margin_p == position_btc.estimate_p).all(), True)
+        self.assertEqual((position_btc.algo_p + position_btc.margin_p - position_btc.estimate_p).sum() == 0, True)
 
         # test difference
-        self.assertEqual((position_btc.estimate_p.clip(0, None) - position_btc.present_p == position_btc.difference).all(),True)
+        self.assertEqual((position_btc.estimate_p.clip(0, None) - position_btc.present_p - position_btc.difference).sum() == 0,True)
 
         # test rebalance_threshold
         self.assertEqual((position_btc.rebalance_threshold == position_btc.estimate_p.abs() * 0.03).all(), True)

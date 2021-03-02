@@ -302,6 +302,7 @@ class TradingPortfolio():
         position = pd.Series({i['asset']: i['free'] for i in self.ticker_info.info['balances']
                               if float(i['free']) != 0}).astype(float)
         position = position[position.index.str[:2] != 'LD']
+        print(position)
 
         # refine asset index
         all_assets = base_asset_value.index | quote_asset_value.index | position.index
@@ -342,7 +343,7 @@ class TradingPortfolio():
         diff_value.rebalance = diff_value.rebalance != 0
         diff_value.excluded = diff_value.excluded != 0
 
-        # calculate transaction
+        # calculate transactions
 
         rebalance_value_btc = diff_value_btc.rebalance * diff_value_btc.difference * (~diff_value_btc.excluded)
         increase_asset_amount = rebalance_value_btc[rebalance_value_btc > 0]
@@ -366,7 +367,7 @@ class TradingPortfolio():
                     increase_asset_amount.loc[nai] -= amount
                     decrease_asset_amount.loc[nad] += amount
                     txn_btc[symbol] = -amount
-                    break
+                    continue
 
                 symbol = nai + nad
                 is_valid = self.ticker_info._list_select(self.ticker_info.tickers, 'symbol',
@@ -376,7 +377,7 @@ class TradingPortfolio():
                     increase_asset_amount.loc[nai] -= amount
                     decrease_asset_amount.loc[nad] += amount
                     txn_btc[symbol] = amount
-                    break
+                    continue
 
         # assumption: self.default_stable_coin can be the quote asset for all alt-coins
         transaction_btc = increase_asset_amount.append(decrease_asset_amount)
@@ -600,7 +601,7 @@ class TradingPortfolio():
 
         return widgets.VBox([option_panel, dropdowns, backtest_panel])
 
-    def portfolio_backtest(self, ohlcvs, min_freq, quote_assets=['BTC', 'USDT', 'BUSD', 'ETH'], fee=0.002, delay=0):
+    def portfolio_backtest(self, ohlcvs, min_freq, quote_assets=['BTC', 'USDT', 'BUSD', 'USDC'], fee=0.002, delay=0):
         """Display portfolio backtest result.
 
         Calculate overall account asset changes.

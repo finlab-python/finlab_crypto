@@ -78,6 +78,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.8
+* merge transactions to reduce fees
+
 Version 0.2.7
 * fix test error (request binance api too fast)
 * add USDC as base stable coin (tp.set_default_stable_coin('USDC'))
