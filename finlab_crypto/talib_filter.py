@@ -38,11 +38,15 @@ def TalibFilter(talib_function_name, condition=None, **additional_parameters):
         if isinstance(o, np.ndarray):
             o = pd.Series(o, index=ohlcv.index)
 
-        ret.condition
         if len(inspect.getargspec(ret.condition)[0]) == 2:
             signals = ret.condition(ohlcv, o)
         else:
-            signals = ret.condition(ohlcv, o, ret.additional_parameters)
+          try:
+            parameters = ({pn: (getattr(ret, pn)) for pn, val in additional_parameters.items()})            
+          except:
+            parameters = additional_parameters
+                       
+          signals = ret.condition(ohlcv, o, parameters)
 
         figures = {}
         group = 'overlaps' if f.info['group'] == 'Overlap Studies' else 'figures'
