@@ -95,7 +95,7 @@ class TradingMethod():
         name: A str of your trading method name (ex:'altcoin-trend-hullma').
 
     """
-    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc, filters=None, name=''):
+    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc, filters=None, name='', execution_price='close'):
         self.symbols = symbols
         self.freq = freq
         self.lookback = lookback
@@ -104,6 +104,7 @@ class TradingMethod():
         self.weight_btc = weight_btc
         self.filters = filters
         self.name = name
+        self.execution_price=execution_price
 
 
 class TradingPortfolio():
@@ -218,7 +219,7 @@ class TradingPortfolio():
                 result = method.strategy.backtest(ohlcv,
                                                   method.variables, filters=method.filters, plot=html,
                                                   html=htmlname,
-                                                  freq=method.freq, fees=0., slippage=0.)
+                                                  freq=method.freq, fees=0., slippage=0., execution_price=method.execution_price)
 
                 signal = result.cash().iloc[-1] == 0
                 return_ = 0
