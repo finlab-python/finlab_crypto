@@ -1,11 +1,14 @@
 from statsmodels.distributions.empirical_distribution import ECDF
 import itertools as itr
 import seaborn as sns
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import datetime
 import math
 
+sharpe_ratio = lambda r: r.mean() / (r.std()+0.0000001) * (365 ** 0.5)
 
 class CSCV(object):
     """Combinatorially symmetric cross-validation algorithm.
@@ -17,7 +20,7 @@ class CSCV(object):
         objective:A function of in sample(is) and out of sample(oos) return benchmark algorithm.Default is lambda r:r.mean().
 
     """
-    def __init__(self, n_bins=10, objective=lambda r: r.mean()):
+    def __init__(self, n_bins=10, objective=sharpe_ratio):
         self.n_bins = n_bins
         self.objective = objective
         self.bins_enumeration = [set(x) for x in itr.combinations(np.arange(10), 10 // 2)]
