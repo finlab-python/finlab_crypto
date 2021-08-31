@@ -78,6 +78,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.10
+* fix numpy version
+
 Version 0.2.8
 * merge transactions to reduce fees
 
