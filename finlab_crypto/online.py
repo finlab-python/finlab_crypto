@@ -125,9 +125,13 @@ class TradingPortfolio():
         self.ticker_info = TickerInfo(self._client)
         self.quote_asset = 'BTC'
         self.default_stable_coin = 'USDT'
+        self.weight_base = None
 
     def set_default_stable_coin(self, token):
         self.default_stable_coin = token
+
+    def set_weight_base(self, token):
+        self.weight_base = token
 
     def register(self, trading_method):
         """Rigister TradingMethod object.
@@ -164,8 +168,13 @@ class TradingPortfolio():
             if base_asset != self.quote_asset:
                 new_symbol = base_asset + self.quote_asset
                 addition[(new_symbol, freq)] = lookback
+        result = {**symbol_lookbacks, **addition}
+        weight_base = self.weight_base
+        if weight_base:
+            base_name = 'BTC' + weight_base
+            result[(base_name, method.freq)] = lookback
 
-        return {**symbol_lookbacks, **addition}
+        return result
 
     def get_ohlcvs(self):
         """Getting histrical price data through binance api.
@@ -212,6 +221,14 @@ class TradingPortfolio():
           The value_in_btc column is present value of assets.
         """
         ret = []
+
+        weight_base = self.weight_base
+        if weight_base:
+            base_name = 'BTC' + weight_base
+            recent_base_price = ohlcvs[[(a, b) for a, b in ohlcvs if base_name in a][0]].iloc[-1]['close']
+        else:
+            recent_base_price = 1
+
         for method in self._trading_methods:
             for symbol in method.symbols:
                 ohlcv = ohlcvs[(symbol, method.freq)]
@@ -225,9 +242,10 @@ class TradingPortfolio():
                 return_ = 0
 
                 # find weight_btc if it is in the nested dictionary
-                weight_btc = method.weight_btc
+                weight_btc = method.weight_btc/recent_base_price
+
                 if isinstance(weight_btc, dict):
-                    weight_btc = (weight_btc[symbol]
+                    weight_btc = (weight_btc[symbol]/recent_base_price
                         if symbol in weight_btc else weight_btc['default'])
 
                 entry_price = 0
