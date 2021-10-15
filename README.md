@@ -52,6 +52,7 @@ vars =  {'n1': 20, 'n2': 60}
 portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 ```
 ![image](https://media.giphy.com/media/tv4xpwJ3T1zJGV6Smj/giphy.gif)
+
 ### Optimization
 ``` python
 import numpy as np
@@ -64,6 +65,52 @@ portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 ![cumulative returns](https://i.ibb.co/vxMV4yG/Screen-Shot-2020-11-23-at-9-49-06-AM.png)
 ![parameter performance](https://i.ibb.co/McrKYDc/Screen-Shot-2020-11-23-at-9-49-15-AM.png)
 ![parameter range view](https://i.ibb.co/q9d1YHG/Screen-Shot-2020-11-23-at-9-49-28-AM.png)
+
+### Live Trading
+
+To perform live trading of a strategy, first we need to encapsulate a strategy into `TradingMethod`:
+```
+from finlab_crypto.online import TradingMethod, TradingPortfolio, render_html
+
+# create TradingMethod for live trading
+tm_sma = TradingMethod(
+    name='live-strategy-sma'
+    symbols=['ADAUSDT', 'DOTBTC', 'ETHBTC'], freq='4h', lookback=1200,
+    strategy=sma_strategy,
+    variables=dict(n1 = 35, n2 = 105,),
+    weight=5000,
+    weight_unit='USDT',
+)
+```
+
+Then, register the `TradingMethod` to `TradingPortfolio`:
+
+```
+# setup porftolio
+BINANCE_KEY = '' # Enter your key and secret here!
+BINANCE_SECRET = ''
+
+tp = TradingPortfolio(BINANCE_KEY, BINANCE_SECRET)
+tp.register(tm0)
+
+# additional trading methods can be registered
+# tp.register(tm1)
+```
+
+Finally, we could call `tp.get_ohlcvs()` to get history data of all trading assets and call `tp.get_latest_signals` to calculate the trading signals. The aggregate information is created using `tp.calculate_position_size`. All the information can be viewed by `render_html`.
+```
+ohlcvs = tp.get_ohlcvs()
+signals = tp.get_latest_signals(ohlcvs)
+position, position_btc, new_orders = tp.calculate_position_size(signals)
+
+render_html(signals, position, position_btc, new_orders, order_results)
+```
+
+If the result make sense, use `tp.execute_orders` to sync the position of your real account. Please make an issue if there is any bug:
+```
+# (order) mode can be either 'TEST', 'MARKET', 'LIMIT'
+order_results = tp.execute_orders(new_orders, mode='TEST') 
+```
 
 ### Testing
 
@@ -78,6 +125,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.13
+* add `weight` and `weight_unit` for `TradingMethod`
+
 Version 0.2.12
 * fix numba version
 
