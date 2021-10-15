@@ -107,7 +107,7 @@ tp.register(tm0)
 # tp.register(tm1)
 ```
 
-### 3. view and execute orders
+#### 3. view and execute orders
 Finally, we could call `tp.get_ohlcvs()` to get history data of all trading assets and call `tp.get_latest_signals` to calculate the trading signals. The aggregate information is created using `tp.calculate_position_size`. All the information can be viewed by `tp.render_html`.
 ```py
 ohlcvs = tp.get_ohlcvs()
