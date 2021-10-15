@@ -3,6 +3,7 @@ import time
 import plotly.express as px
 import pandas as pd
 import datetime
+import warnings
 from IPython.display import display
 from binance.enums import *
 from finlab_crypto.crawler import get_nbars_binance, get_all_binance
@@ -95,17 +96,28 @@ class TradingMethod():
         name: A str of your trading method name (ex:'altcoin-trend-hullma').
 
     """
-    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc, filters=None, name='', execution_price='close'):
+    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc=None, weight=None, weight_unit=None, filters=None, name='', execution_price='close'):
         self.symbols = symbols
         self.freq = freq
         self.lookback = lookback
         self.strategy = strategy
         self.variables = variables
         self.weight_btc = weight_btc
+        self.weight = weight
+        self.weight_unit = weight_unit
         self.filters = filters
         self.name = name
         self.execution_price=execution_price
 
+        if self.weight_btc is None and self.weight is None:
+            raise Exception("weight_btc or weight is missing.")
+
+        if self.weight_btc is not None and self.weight is not None:
+            raise Exception("weight_btc and weight should not be assigned at the same time")
+
+        if self.weight_btc:
+            self.weight = self.weight_btc
+            self.weight_unit = 'BTC'
 
 class TradingPortfolio():
     """Connect Binance account.
@@ -123,7 +135,6 @@ class TradingPortfolio():
         self._trading_methods = []
         self._margins = {}
         self.ticker_info = TickerInfo(self._client)
-        self.quote_asset = 'BTC'
         self.default_stable_coin = 'USDT'
 
     def set_default_stable_coin(self, token):
@@ -152,18 +163,36 @@ class TradingPortfolio():
 
         """
         symbol_lookbacks = {}
+        addition = {}
+
+        weight_units = set()
+        max_lookback = 0
+
         for method in self._trading_methods:
+            weight_units.add((method.weight_unit, method.freq))
+            max_lookback = max(max_lookback, method.lookback)
             for a in method.symbols:
+
+                quote_asset = self.ticker_info.get_quote_asset(a)
+                base_asset = self.ticker_info.get_base_asset(a)
                 if (a, method.freq) not in symbol_lookbacks or method.lookback > symbol_lookbacks[(a, method.freq)]:
                     symbol_lookbacks[(a, method.freq)] = method.lookback
 
+                if base_asset != method.weight_unit:
+                    new_symbol = base_asset + method.weight_unit
+                    if (new_symbol, method.freq) not in addition or method.lookback > addition[(new_symbol, method.freq)]:
+                        addition[(new_symbol, method.freq)] = method.lookback
+
+        for w, f in weight_units:
+            if w != 'BTC':
+                addition[('BTC' + w, f)] = max_lookback
+
         # add quote asset historical data
-        addition = {}
-        for (symbol, freq), lookback in symbol_lookbacks.items():
-            base_asset = self.ticker_info.get_base_asset(symbol)
-            if base_asset != self.quote_asset:
-                new_symbol = base_asset + self.quote_asset
-                addition[(new_symbol, freq)] = lookback
+        # for (symbol, freq), lookback in symbol_lookbacks.items():
+        #     base_asset = self.ticker_info.get_base_asset(symbol)
+        #     if base_asset != self.quote_asset:
+        #         new_symbol = base_asset + self.quote_asset
+        #         addition[(new_symbol, freq)] = lookback
 
         return {**symbol_lookbacks, **addition}
 
@@ -224,11 +253,11 @@ class TradingPortfolio():
                 signal = result.cash().iloc[-1] == 0
                 return_ = 0
 
-                # find weight_btc if it is in the nested dictionary
-                weight_btc = method.weight_btc
-                if isinstance(weight_btc, dict):
-                    weight_btc = (weight_btc[symbol]
-                        if symbol in weight_btc else weight_btc['default'])
+                # find weight if it is in the nested dictionary
+                weight = method.weight
+                if isinstance(weight, dict):
+                    weight = (weight[symbol]
+                        if symbol in weight else weight['default'])
 
                 entry_price = 0
                 entry_time = 0
@@ -241,15 +270,38 @@ class TradingPortfolio():
                     entry_time = ohlcv.index[int(rds.iloc[-1]['idx'])]
 
                     base_asset = self.ticker_info.get_base_asset(symbol)
-                    if base_asset != self.quote_asset:
-                        quote_asset_symbol = base_asset + self.quote_asset
-                        quote_asset_price_previous = ohlcvs[(quote_asset_symbol, method.freq)].close.loc[entry_time]
-                        quote_asset_price_now = ohlcvs[(quote_asset_symbol, method.freq)].close.iloc[-1]
+                    quote_asset = self.ticker_info.get_quote_asset(symbol)
+
+                    if base_asset != method.weight_unit:
+                        quote_symbol = base_asset + method.weight_unit
+                        quote_history = ohlcvs[(quote_symbol, method.freq)]
+                        quote_asset_price_previous = quote_history.close.loc[entry_time]
+                        quote_asset_price_now = quote_history.close.iloc[-1]
                     else:
                         quote_asset_price_previous = 1
                         quote_asset_price_now = 1
 
-                    value_in_btc = weight_btc / quote_asset_price_previous * quote_asset_price_now
+                    if method.weight_unit != 'BTC':
+                        btc_quote_price_previous = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.loc[entry_time]
+                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.iloc[-1]
+                    else:
+                        btc_quote_price_previous = 1
+                        btc_quote_price_now = 1
+
+                    previous_weight_btc = (weight / btc_quote_price_previous)
+                    value_in_btc = previous_weight_btc / quote_asset_price_previous * quote_asset_price_now / (btc_quote_price_now / btc_quote_price_previous)
+                    weight_btc = previous_weight_btc
+                    previous_price_btc = quote_asset_price_previous  / btc_quote_price_previous
+                    amount = previous_weight_btc / previous_price_btc
+
+                else:
+                    if method.weight_unit != 'BTC':
+                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.iloc[-1]
+                    else:
+                        btc_quote_price_now = 1
+
+                    weight_btc = weight / btc_quote_price_now
+                    amount = 0
 
                 ret.append({
                     'symbol': symbol,
@@ -258,6 +310,7 @@ class TradingPortfolio():
                     'weight_btc': weight_btc,
                     'freq': method.freq,
                     'return': return_,
+                    'amount': amount,
                     'value_in_btc': value_in_btc * signal,
                     'latest_price': ohlcv.close.iloc[-1],
                     'entry_price': entry_price,
@@ -303,7 +356,6 @@ class TradingPortfolio():
         position = pd.Series({i['asset']: i['free'] for i in self.ticker_info.info['balances']
                               if float(i['free']) != 0}).astype(float)
         position = position[position.index.str[:2] != 'LD']
-        print(position)
 
         # refine asset index
         all_assets = base_asset_value.index | quote_asset_value.index | position.index
@@ -390,7 +442,7 @@ class TradingPortfolio():
         transaction_btc = transaction_btc.append(pd.Series(txn_btc))
 
         transaction = transaction_btc.to_frame(name='value_in_btc')
-        print(transaction)
+
         transaction['base_asset'] = transaction.index.map(self.ticker_info.get_base_asset)
         transaction['quote_asset'] = transaction.index.map(self.ticker_info.get_quote_asset)
         transaction['value'] = transaction['value_in_btc'] / transaction.base_asset.map(
