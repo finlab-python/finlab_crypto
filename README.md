@@ -7,7 +7,7 @@ Develop and verify crypto trading strategies at a glance.
 * Pandas vectorize backtest
 * Talib wrapper to composite strategies easily
 * Backtest visualization and analysis (uses [vectorbt](https://github.com/polakowo/vectorbt/) as backend)
-* Analaysis the probability of overfitting ([combinatorially symmetric cross validation](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf))
+* Analyze the probability of overfitting ([combinatorially symmetric cross validation](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf))
 * Easy to deploy strategies on google cloud functions
 * Colab and Jupyter compatable
 * [10 hours trading bot online course](https://hahow.in/cr/crypto-python)
@@ -68,8 +68,11 @@ portfolio = sma_strategy.backtest(ohlcv, vars, freq='4h', plot=True)
 
 ### Live Trading
 
-To perform live trading of a strategy, first we need to encapsulate a strategy into `TradingMethod`:
-```
+To perform live trading of a strategy, the following 3 sections should be executed when any candle is complete.
+
+#### 1. Create TradingMethods
+First, we need to encapsulate a strategy into `TradingMethod`
+```py
 from finlab_crypto.online import TradingMethod, TradingPortfolio, render_html
 
 # create TradingMethod for live trading
@@ -80,25 +83,33 @@ tm_sma = TradingMethod(
     variables=dict(n1 = 35, n2 = 105,),
     weight=5000,
     weight_unit='USDT',
+    execution_price='close' # trade at close or open price
 )
 ```
 
-Then, register the `TradingMethod` to `TradingPortfolio`:
+#### 2. register TradingMethods to TradingPortfolio
+A `TradingPortfolio` can sync the virtual portfolio to your Binance trading account. A `TradingPortfolio` contains many `TradingMethod`s, which should be executed whenever any new candle is (going to) closed. You can decide when to rebalance the portfolio by giving `execute_before_candle_complete` when creating the `TradingPortfolio`:
+* `execute_before_candle_complete=True`: rebalance right *before* a candle is closed (i.e. setting xx:59 for 1h frequency strategy), so you can execute orders faster then others. However, signal hazards may occur due to incomplete candles.
+* `execute_before_candle_complete=False` (default): rebalance right *after* a candle is closed (i.e. setting xx:00 for 1h frequency strategy)
 
-```
-# setup porftolio
+The above information is crucial to help `TradingPortfolio` decide whether to remove incomplete candles when generating trading signals or not. However, `Tradingportfolio` will *not* execute periodically for you. So, you should set up a crontab or cloud function to execute it.
+We recommend you run the code by yourself before setting the crontab or cloud function.
+
+```py
+# setup portftolio
 BINANCE_KEY = '' # Enter your key and secret here!
 BINANCE_SECRET = ''
 
-tp = TradingPortfolio(BINANCE_KEY, BINANCE_SECRET)
+tp = TradingPortfolio(BINANCE_KEY, BINANCE_SECRET, execute_before_candle_complete=False)
 tp.register(tm0)
 
 # additional trading methods can be registered
 # tp.register(tm1)
 ```
 
-Finally, we could call `tp.get_ohlcvs()` to get history data of all trading assets and call `tp.get_latest_signals` to calculate the trading signals. The aggregate information is created using `tp.calculate_position_size`. All the information can be viewed by `render_html`.
-```
+### 3. view and execute orders
+Finally, we could call `tp.get_ohlcvs()` to get history data of all trading assets and call `tp.get_latest_signals` to calculate the trading signals. The aggregate information is created using `tp.calculate_position_size`. All the information can be viewed by `tp.render_html`.
+```py
 ohlcvs = tp.get_ohlcvs()
 signals = tp.get_latest_signals(ohlcvs)
 position, position_btc, new_orders = tp.calculate_position_size(signals)
@@ -106,15 +117,16 @@ position, position_btc, new_orders = tp.calculate_position_size(signals)
 render_html(signals, position, position_btc, new_orders, order_results)
 ```
 
-If the result make sense, use `tp.execute_orders` to sync the position of your real account. Please make an issue if there is any bug:
-```
+If the result makes sense, use `tp.execute_orders` to sync the position of your real account. Please make an issue if there is any bug:
+```py
 # (order) mode can be either 'TEST', 'MARKET', 'LIMIT'
+# TEST mode will show orders without real executions.
 order_results = tp.execute_orders(new_orders, mode='TEST') 
 ```
 
 ### Testing
 
-The following script runs all testcases on your local environment. [Creating an isolated python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended. To test crawler functions, please provide Binance API's key and secret by setting environment variables `BINANCE_KEY` and `BINANCE_SECRET`, respectively.
+The following script runs all test cases on your local environment. [Creating an isolated python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended. To test crawler functions, please provide Binance API's key and secret by setting environment variables `BINANCE_KEY` and `BINANCE_SECRET`, respectively.
 
 ``` bash
 git clone https://github.com/finlab-python/finlab_crypto.git
@@ -125,7 +137,8 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
-Version 0.2.13
+Version 0.2.14
+* add `execute_before_candle_complete`
 * add `weight` and `weight_unit` for `TradingMethod`
 
 Version 0.2.12
@@ -158,7 +171,7 @@ Version 0.2.3
 
 Version 0.2.2: not stable
 * improve syntax
-* add execution price for strategy
+* add execution price for the strategy
 
 Version 0.2.1
 * fix vectorbt version

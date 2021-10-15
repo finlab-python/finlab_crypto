@@ -1,6 +1,7 @@
 import sys
 import time
 import plotly.express as px
+from datetime import timezone
 import pandas as pd
 import datetime
 import warnings
@@ -130,12 +131,13 @@ class TradingPortfolio():
         binance_secret: A str of is binance authorization secret.
 
     """
-    def __init__(self, binance_key, binance_secret):
+    def __init__(self, binance_key, binance_secret, execute_before_candle_complete=False):
         self._client = Client(api_key=binance_key, api_secret=binance_secret)
         self._trading_methods = []
         self._margins = {}
         self.ticker_info = TickerInfo(self._client)
         self.default_stable_coin = 'USDT'
+        self.execute_before_candle_complete = execute_before_candle_complete
 
     def set_default_stable_coin(self, token):
         self.default_stable_coin = token
@@ -145,6 +147,12 @@ class TradingPortfolio():
         Args:
           trading_method: A object of TradingMethod().
         """
+
+        if trading_method.execution_price == 'open' and self.execute_before_candle_complete:
+            raise Exception("Detect execute_before_candle_complete=True and trading_method.execution_price is open"
+                    + "Please set trading_method.execute_before_candle_complete to False"
+                    + " and execute live trading right after candles are complete.")
+
         self._trading_methods.append(trading_method)
 
     def register_margin(self, asset, weight_btc):
@@ -243,7 +251,14 @@ class TradingPortfolio():
         ret = []
         for method in self._trading_methods:
             for symbol in method.symbols:
-                ohlcv = ohlcvs[(symbol, method.freq)]
+                ohlcv = ohlcvs[(symbol, method.freq)].copy()
+
+                # remove incomplete candle
+                if self.execute_before_candle_complete == False and method.execution_price == 'close':
+                    t = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+                    delta_t = ohlcv.index[-1] - ohlcv.index[-2]
+                    ohlcv = ohlcv.loc[:t-delta_t]
+
                 htmlname = f'{symbol}-{method.freq}-{method.name}.html' if html else None
                 result = method.strategy.backtest(ohlcv,
                                                   method.variables, filters=method.filters, plot=html,
@@ -262,10 +277,11 @@ class TradingPortfolio():
                 entry_price = 0
                 entry_time = 0
                 value_in_btc = 0
+                trade_price_type = method.execution_price
                 if signal:
                     txn = result.positions().records
                     rds = result.orders().records
-                    return_ = ohlcv.close.iloc[-1] / rds['price'].iloc[-1] - 1
+                    return_ = ohlcv[trade_price_type].iloc[-1] / rds['price'].iloc[-1] - 1
                     entry_price = rds['price'].iloc[-1]
                     entry_time = ohlcv.index[int(rds.iloc[-1]['idx'])]
 
@@ -275,15 +291,15 @@ class TradingPortfolio():
                     if base_asset != method.weight_unit:
                         quote_symbol = base_asset + method.weight_unit
                         quote_history = ohlcvs[(quote_symbol, method.freq)]
-                        quote_asset_price_previous = quote_history.close.loc[entry_time]
-                        quote_asset_price_now = quote_history.close.iloc[-1]
+                        quote_asset_price_previous = quote_history[trade_price_type].loc[entry_time]
+                        quote_asset_price_now = quote_history[trade_price_type].iloc[-1]
                     else:
                         quote_asset_price_previous = 1
                         quote_asset_price_now = 1
 
                     if method.weight_unit != 'BTC':
-                        btc_quote_price_previous = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.loc[entry_time]
-                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.iloc[-1]
+                        btc_quote_price_previous = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].loc[entry_time]
+                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].iloc[-1]
                     else:
                         btc_quote_price_previous = 1
                         btc_quote_price_now = 1
@@ -296,7 +312,7 @@ class TradingPortfolio():
 
                 else:
                     if method.weight_unit != 'BTC':
-                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)].close.iloc[-1]
+                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].iloc[-1]
                     else:
                         btc_quote_price_now = 1
 
@@ -312,7 +328,7 @@ class TradingPortfolio():
                     'return': return_,
                     'amount': amount,
                     'value_in_btc': value_in_btc * signal,
-                    'latest_price': ohlcv.close.iloc[-1],
+                    'latest_price': ohlcv[trade_price_type].iloc[-1],
                     'entry_price': entry_price,
                     'entry_time': entry_time,
                     'html': htmlname,
