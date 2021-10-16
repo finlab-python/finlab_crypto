@@ -9,7 +9,7 @@ setuptools.setup(
      author_email="finlabstaff@gmail.com",
      description="A backtesting framework for crytpo currency",
      long_description=long_description,
-   long_description_content_type="text/markdown",
+     long_description_content_type="text/markdown",
      packages=['finlab_crypto'],
      install_requires=[
         'numpy==1.20.0',

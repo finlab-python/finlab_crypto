@@ -166,7 +166,7 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
 
     c, info = chart.chart(ohlcv, overlaps=overlaps,
                           figures=figures, markerlines=mark_lines,
-                          start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1])
+                          start_date=ohlcv.index[-len(ohlcv)], end_date=ohlcv.index[-1])
     c.load_javascript()
     if html is not None:          
         c.render(html)
