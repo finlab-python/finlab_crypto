@@ -308,7 +308,10 @@ class TradingPortfolio():
                     value_in_btc = previous_weight_btc / quote_asset_price_previous * quote_asset_price_now / (btc_quote_price_now / btc_quote_price_previous)
                     weight_btc = previous_weight_btc
                     previous_price_btc = quote_asset_price_previous  / btc_quote_price_previous
+                    present_price_btc = quote_asset_price_now  / btc_quote_price_now
                     amount = previous_weight_btc / previous_price_btc
+                    present_amount = value_in_btc / present_price_btc
+                    assert 0.9999 < amount / present_amount < 1.0001
 
                 else:
                     if method.weight_unit != 'BTC':
@@ -693,10 +696,12 @@ class TradingPortfolio():
                 result = method.strategy.backtest(ohlcv,
                                                   method.variables, filters=method.filters, freq=method.freq)
                 # find weight_btc if it is in the nested dictionary
-                weight_btc = method.weight_btc
+                weight_btc = method.weight
                 if isinstance(weight_btc, dict):
                     weight_btc = (weight_btc[symbol]
-                        if symbol in weight_btc else weight_btc['default'])
+                        if symbol in weight else weight_btc['default'])
+
+                weight_btc *= self.ticker_info.get_asset_price_in_btc(method.weight_unit)
 
                 results.append({
                     'name': method.name,
