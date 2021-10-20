@@ -12,9 +12,9 @@ __version__ = '0.2.15'
 
 
 # set default fees and slippage
-vbt.defaults.portfolio['init_cash'] = 100.0 # in $
-vbt.defaults.portfolio['fees'] = 0.001       # in %
-vbt.defaults.portfolio['slippage'] = 0.001  # in %
+vbt.settings.portfolio['init_cash'] = 100.0 # in $
+vbt.settings.portfolio['fees'] = 0.001       # in %
+vbt.settings.portfolio['slippage'] = 0.001  # in %
 
 # has workspace
 def check_and_create_dir(dname):

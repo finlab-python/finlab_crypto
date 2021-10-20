@@ -138,7 +138,7 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
 def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
 
     # format trade data
-    txn = portfolio.positions().records
+    txn = portfolio.positions.records
     txn['enter_time'] = ohlcv.iloc[txn.entry_idx].index.values
     txn['exit_time'] = ohlcv.iloc[txn.exit_idx].index.values
 
