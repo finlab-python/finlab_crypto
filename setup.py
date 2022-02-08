@@ -14,7 +14,7 @@ setuptools.setup(
      install_requires=[
         'numpy==1.20.0',
         'numba==0.53.1',
-        'pandas==1.1.5',
+        'pandas>=1.1.5',
         'python-binance==0.7.5',
         'pyecharts==1.7.1',
         'vectorbt==0.14.4',
