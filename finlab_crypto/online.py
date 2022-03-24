@@ -699,7 +699,7 @@ class TradingPortfolio():
                 weight_btc = method.weight
                 if isinstance(weight_btc, dict):
                     weight_btc = (weight_btc[symbol]
-                        if symbol in weight else weight_btc['default'])
+                        if symbol in method.weight else weight_btc['default'])
 
                 weight_btc *= self.ticker_info.get_asset_price_in_btc(method.weight_unit)
 

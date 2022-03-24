@@ -357,7 +357,7 @@ class Strategy(object):
         if side == 'long':
 
             if not compounded:
-                args['size'] = vbt.defaults.portfolio['init_cash'] /  ohlcv_lookback.close[0]
+                args['size'] = vbt.settings.portfolio['init_cash'] /  ohlcv_lookback.close[0]
 
             assert execution_price == 'close' or execution_price == 'open'
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
