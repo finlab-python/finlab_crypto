@@ -137,6 +137,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Verison 0.2.17
+*update vectorbt version
+
 Version 0.2.16
 * update pandas version
 
