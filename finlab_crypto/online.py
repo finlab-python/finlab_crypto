@@ -279,8 +279,8 @@ class TradingPortfolio():
                 value_in_btc = 0
                 trade_price_type = method.execution_price
                 if signal:
-                    txn = result.positions().records
-                    rds = result.orders().records
+                    txn = result.positions.records
+                    rds = result.orders.records
                     return_ = ohlcv[trade_price_type].iloc[-1] / rds['price'].iloc[-1] - 1
                     entry_price = rds['price'].iloc[-1]
                     entry_time = ohlcv.index[int(rds.iloc[-1]['idx'])]
