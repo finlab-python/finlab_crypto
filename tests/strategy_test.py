@@ -93,7 +93,7 @@ class TestStrategyMethods(unittest.TestCase):
         entries_signal = (sma1 > sma2).fillna(False)
         exits_signal = (sma1 > sma2).fillna(False)
 
-        svars = {'n1': 10, 'n2': 20}
+        svars = {'n1': 10, 'n2': 20, 'sl_stop': 0.1}
 
         entries, exits, fig = sma_strategy.backtest(ohlcv, variables=svars, signals=True, freq='4h')
 
@@ -117,7 +117,7 @@ class TestStrategyMethods(unittest.TestCase):
         entries_signal = (sma1 > sma2).fillna(False)
         exits_signal = (sma1 > sma2).fillna(False)
 
-        svars = {'n1': 10, 'n2': 20}
+        svars = {'n1': 10, 'n2': 20, 'sl_stop': 0.1, 'sl_trail': 0.1}
 
         import vectorbt as vbt
         portfolio = sma_strategy.backtest(ohlcv, variables=svars, freq='4h', plot=True)
@@ -136,7 +136,7 @@ class TestStrategyMethods(unittest.TestCase):
         sma1 = ohlcv.close.rolling(10).mean()
         sma2 = ohlcv.close.rolling(20).mean()
 
-        svars = {'n1': [10, 11, 12], 'n2': 20}
+        svars = {'n1': [10, 11, 12], 'n2': 20, 'tp_stop': [1,2,3]}
 
         import vectorbt as vbt
         portfolio = sma_strategy.backtest(ohlcv, variables=svars, freq='4h', plot=True)

@@ -94,7 +94,7 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
 
     # check for stop_vars
     length = -1
-    stop_vars_set = {'sl_stop', 'ts_stop', 'tp_stop'}
+    stop_vars_set = {'sl_stop', 'ts_stop', 'tp_stop', 'sl_trail'}
     for s, slist in stop_vars.items():
         if s not in stop_vars_set:
             raise Exception(f'variable { s } is not one of the stop variables'
@@ -113,13 +113,17 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
         stop_vars = enumerate_variables(stop_vars)
         stop_vars = {key: [stop_vars[i][key] for i in range(len(stop_vars))] for key in stop_vars[0].keys()}
 
-    sl_advstex = vbt.ADVSTEX.run(
+    # vbt patch: change ts_stop to sl_trail
+    if 'ts_stop' in stop_vars:
+        ts_stop = stop_vars.pop('ts_stop')
+        stop_vars['sl_trail'] = ts_stop
+
+    sl_advstex = vbt.OHLCSTX.run(
         entries,
         ohlcv['open'],
         ohlcv['high'],
         ohlcv['low'],
         ohlcv['close'],
-        stop_type=None,
         **stop_vars
     )
 
@@ -168,13 +172,13 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
                           figures=figures, markerlines=mark_lines,
                           start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1])
     c.load_javascript()
-    if html is not None:          
+    if html is not None:
         c.render(html)
     else:
         c.render()
         display(HTML(filename='render.html'))
 
-    return 
+    return
 
 def plot_combination(portfolio, cscv_result=None, metric='final_value'):
 
@@ -302,8 +306,8 @@ def variable_visualization(portfolio):
             out.clear_output()
             if name1 != name2:
                 df = (getattr(portfolio, performance)()
-                      .reset_index().groupby([name1, name2]).mean()[0]
-                      .reset_index().pivot(name1, name2)[0])
+                      .reset_index().groupby([name1, name2]).mean()[performance]
+                      .reset_index().pivot(name1, name2)[performance])
 
                 df = df.replace([np.inf, -np.inf], np.nan)
                 sns.heatmap(df)

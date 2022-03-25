@@ -329,7 +329,9 @@ class Strategy(object):
         filters = filters or dict()
 
         variables_without_stop = copy.copy(variables)
-        exit_vars = ['sl_stop', 'ts_stop', 'tp_stop']
+
+        # sl_trail: patch for vbt updates
+        exit_vars = ['sl_stop', 'ts_stop', 'tp_stop', 'sl_trail']
         stop_vars = {}
         for e in exit_vars:
             if e in variables_without_stop:

@@ -137,6 +137,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Verison 0.2.18
+*fix stop loss and take profit and add them into tests
+
 Verison 0.2.17
 *update vectorbt version
 
