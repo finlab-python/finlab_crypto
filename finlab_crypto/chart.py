@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from pyecharts.charts import Candlestick
 
-def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=[], start_date=None, end_date=None):
+def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=[], start_date=None, end_date=None, k_colors='world'):
     """Backtesting Analysis and optimizer dashboard platform.
 
     Use pyechart and seaborn module to generate interactive variety charts.
@@ -20,6 +20,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
       markerlines: A tuple(name, x, y ) in dict of drawing the line connection between entry to exist point.
       start_date: A datetime value of the start of dfstock.
       end_date: A datetime value of the end of dfstock .
+      k_colors: A string value(world or taiwan) of kline color for diff area. Or use dict format like {'increasing_line':#111111, 'decreasing_line':#000000}
 
     Returns:
       grid_chart: chart display.
@@ -79,6 +80,12 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     #                        itemstyle_opts=opts.ItemStyleOpts(color='rgba(0,0,0,0.3)')
     #     )
     # ]
+    if isinstance(k_colors, str):
+        k_colors_set = {'taiwan': {'increasing_line': '#ff6183', 'decreasing_line': '#58d6ac'},
+                        'world': {'increasing_line': '#58d6ac', 'decreasing_line': '#ff6183'}
+                        }[k_colors]
+    if isinstance(k_colors, dict):
+        k_colors_set = {'increasing_line': k_colors.get('increasing_line', '#58d6ac'), 'decreasing_line': k_colors.get('decreasing_line', '#ff6183')}
 
     kline = (
         Kline()
@@ -94,10 +101,10 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
                 label_opts={'position':'insideMiddleTop', 'show': False}
             ),
             itemstyle_opts=opts.ItemStyleOpts(
-                color="#ff6183",
-                color0="#58d6ac",
-                border_color="#ff6183",
-                border_color0="#58d6ac",
+                color=k_colors_set['increasing_line'],
+                color0=k_colors_set['decreasing_line'],
+                border_color=k_colors_set['increasing_line'],
+                border_color0=k_colors_set['decreasing_line'],
             ),
         )
         .set_series_opts()

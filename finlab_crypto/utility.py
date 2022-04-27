@@ -139,7 +139,7 @@ def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
 
     return entries, stop_exits
 
-def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
+def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None, k_colors='world'):
 
     # format trade data
     txn = portfolio.positions.records
@@ -170,7 +170,7 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None):
 
     c, info = chart.chart(ohlcv, overlaps=overlaps,
                           figures=figures, markerlines=mark_lines,
-                          start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1])
+                          start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1], k_colors=k_colors)
     c.load_javascript()
     if html is not None:
         c.render(html)

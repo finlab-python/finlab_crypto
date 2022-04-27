@@ -283,7 +283,8 @@ class Strategy(object):
     def backtest(self, ohlcv, variables=None,
                  filters=None, lookback=None, plot=False,
                  signals=False, side='long', cscv_nbins=10,
-                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='close', **args):
+                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='close',
+                 k_colors='world', **args):
 
         """Backtest analysis tool set.
         Use vectorbt as base module to create numerical operations features.
@@ -313,6 +314,8 @@ class Strategy(object):
             Default is True
           execution_price: price for trading operation ('open' or 'close').
             Default is 'open'
+          k_colors: A string value(world or taiwan) of kline color for diff area. Or use dict format like {'increasing_line':#111111, 'decreasing_line':#000000}
+            Default is 'world'
           **args:
             Other parameters.
 
@@ -374,7 +377,7 @@ class Strategy(object):
             raise Exception("side should be 'long' or 'short'")
 
         if (plot or html is not None) and isinstance(entries, pd.Series):
-            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html)
+            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html, k_colors=k_colors)
 
         elif plot and isinstance(entries, pd.DataFrame):
 
