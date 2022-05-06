@@ -45,7 +45,7 @@ def minutes_of_new_data(symbol, kline_size, data, source, client):
                                                  unit='ms')
     if source == "bitmex": new = \
     client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=1, reverse=True).result()[0][0]['timestamp']
-    return old, new
+    return old, new + timedelta(minutes=1)
 
 
 def get_all_binance(symbol, kline_size, save=True, client=Client()):
