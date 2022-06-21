@@ -134,7 +134,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
         .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
         .add_yaxis(
             series_name="volume",
-            yaxis_data=dfstock.volume.loc[start_date:end_date].to_list(),
+            y_axis=dfstock.volume.loc[start_date:end_date].to_list(),
             xaxis_index=1,
             yaxis_index=1,
             label_opts=opts.LabelOpts(is_show=False),
@@ -194,7 +194,7 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
             chart.add_xaxis(xaxis_data=index)
             chart.add_yaxis(
                 series_name=name,
-                yaxis_data=values,
+                y_axis=values,
                 #xaxis_index=1,
                 #yaxis_index=1,
                 label_opts=opts.LabelOpts(is_show=False),
