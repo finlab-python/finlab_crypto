@@ -16,7 +16,7 @@ setuptools.setup(
         'numba==0.53.1',
         'pandas>=1.1.5',
         'python-binance>=0.7.5',
-        'pyecharts==1.7.1',
+        'pyecharts==1.9.1',
         'vectorbt',
         'statsmodels>=0.10.2',
         'tqdm>=4.41.1',
