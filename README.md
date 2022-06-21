@@ -137,14 +137,20 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.20
+
+* fix get_all_binance last candle not updated
+
 Version 0.2.19
-*fix bar color
+
+* fix bar color
 
 Verison 0.2.18
-*fix stop loss and take profit and add them into tests
+
+* fix stop loss and take profit and add them into tests
 
 Verison 0.2.17
-*update vectorbt version
+* update vectorbt version
 
 Version 0.2.16
 * update pandas version

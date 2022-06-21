@@ -97,7 +97,7 @@ def get_all_binance(symbol, kline_size, save=True, client=Client()):
     return data_df.astype(float)
 
 
-def get_nbars_binance(symbol, interval, nbars, client):
+def get_nbars_binance(symbol, interval, nbars, client=Client()):
     """Getting histrical price data through binance api by interval arg.
 
     Args:
