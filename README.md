@@ -137,6 +137,11 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.21
+
+* fix pyecharts compatibility
+* set the default argument `client` of get_nbars_binance 
+
 Version 0.2.20
 
 * fix get_all_binance last candle not updated
