@@ -369,7 +369,7 @@ class Strategy(object):
 
             portfolio = vbt.Portfolio.from_signals(
                 price, entries.fillna(False), exits.fillna(False), **args)
-        # TESTING SHORTING ADDITION CAPABILTIES
+
         elif side == 'short':
             if not compounded:
                 args['size'] = vbt.settings.portfolio['init_cash'] / ohlcv_lookback.close[0]
@@ -379,7 +379,7 @@ class Strategy(object):
 
             portfolio = vbt.Portfolio.from_signals(
                 price, 
-                direction=Direction.ShortOnly,
+                # direction=Direction.ShortOnly,
                 short_entries=entries.fillna(False), 
                 short_exits=exits.fillna(False), **args)
 

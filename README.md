@@ -140,7 +140,6 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 Version 0.2.22 - [@kodiakcrypto](https://github.com/kodiakcrypto)
 
 * added shorting capability
-* change init cash to $1,000,000 (Vector BT might have infinity as default)
 * changed default fees to 0.15% because standard taker fees are 0.075% to execute a trade
 * updated SMA + BB demo strategy examples
 
