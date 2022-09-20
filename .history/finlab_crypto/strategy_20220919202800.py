@@ -324,9 +324,9 @@ class Strategy(object):
             Plot results display.
 
         Raises:
-            "side should be 'long' or 'short'": if side is not 'short' or 'long'.
+            "side should be 'long' or 'short'":if side is not 'short' or 'long'.
         """
-
+        
         variables = variables or dict()
         filters = filters or dict()
 
@@ -368,10 +368,10 @@ class Strategy(object):
 
             portfolio = vbt.Portfolio.from_signals(
                 price, entries.fillna(False), exits.fillna(False), **args)
-        # TESTING SHORTING ADDITION CAPABILTIES
+
         elif side == 'short':
             if not compounded:
-                args['size'] = vbt.settings.portfolio['init_cash'] / ohlcv_lookback.close[0]
+                args['size'] = vbt.settings.portfolio['init_cash'] /  ohlcv_lookback.close[0]
 
             assert execution_price == 'close' or execution_price == 'open'
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()

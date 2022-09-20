@@ -170,7 +170,6 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None, k_color
 
     c, info = chart.chart(ohlcv, overlaps=overlaps,
                           figures=figures, markerlines=mark_lines,
-                          ## TESTING BIGGER CHARTS
                           start_date=ohlcv.index[-min(2000, len(ohlcv))], end_date=ohlcv.index[-1], k_colors=k_colors)
     c.load_javascript()
     if html is not None:
