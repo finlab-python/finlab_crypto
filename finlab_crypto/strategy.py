@@ -286,7 +286,7 @@ class Strategy(object):
                  signals=False, side='long', cscv_nbins=10,
                  cscv_objective=lambda r: r.mean(), html=None, 
                  compounded=True, execution_price='close',
-                 amount_of_candles=1000,
+                 amount_of_candles=1000, init_cash=100,
                  k_colors='world', **args):
 
         """Backtest analysis tool set.
@@ -327,7 +327,7 @@ class Strategy(object):
             Plot results display.
 
         Raises:
-            "side should be 'long' or 'short'": if side is not 'short' or 'long'.
+            "side should be 'long', 'short' or 'both'": if side isnt any of those.
         """
 
         variables = variables or dict()
@@ -362,7 +362,6 @@ class Strategy(object):
             return entries, exits, fig_data
 
         if side == 'long':
-
             if not compounded:
                 args['size'] = vbt.settings.portfolio['init_cash'] /  ohlcv_lookback.close[0]
 
@@ -370,7 +369,10 @@ class Strategy(object):
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
 
             portfolio = vbt.Portfolio.from_signals(
-                price, entries.fillna(False), exits.fillna(False), **args)
+                price,
+                direction='longonly', 
+                entries=entries.fillna(False), 
+                exits=exits.fillna(False), **args)
 
         elif side == 'short':
             if not compounded:

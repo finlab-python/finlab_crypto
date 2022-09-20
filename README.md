@@ -143,6 +143,7 @@ Version 0.2.22 - [@kodiakcrypto](https://github.com/kodiakcrypto)
 * added 'both' as a valid 'backtest.side' param 
     * entry opens long and closes short, and exit closes long and opens short
 * changed default fees to 0.075% because standard taker fees
+* slippage to 0 by default
 * updated SMA + BB demo strategy examples
 
 Version 0.2.21
