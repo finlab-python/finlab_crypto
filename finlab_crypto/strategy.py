@@ -380,16 +380,29 @@ class Strategy(object):
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
 
             portfolio = vbt.Portfolio.from_signals(
-                price, 
-                # direction=Direction.ShortOnly,
-                short_entries=entries.fillna(False), 
-                short_exits=exits.fillna(False), **args)
+                price,
+                direction='shortonly',
+                entries=entries.fillna(False), 
+                exits=exits.fillna(False), **args)
 
+        elif side =='both':
+            if not compounded:
+                args['size'] = vbt.settings.portfolio['init_cash'] / ohlcv_lookback.close[0]
+
+            assert execution_price == 'close' or execution_price == 'open'
+            price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
+
+            portfolio = vbt.Portfolio.from_signals(
+                price,
+                direction='both',
+                entries=entries.fillna(False), 
+                exits=exits.fillna(False), **args)
         else:
-            raise Exception("side should be 'long' or 'short'")
+            raise Exception("side should be 'long' or 'short' or 'both'")
 
         if (plot or html is not None) and isinstance(entries, pd.Series):
-            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html, k_colors=k_colors, amount_of_candles=amount_of_candles)
+            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, 
+                          html=html, k_colors=k_colors, amount_of_candles=amount_of_candles)
 
         elif plot and isinstance(entries, pd.DataFrame):
 

@@ -140,7 +140,9 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 Version 0.2.22 - [@kodiakcrypto](https://github.com/kodiakcrypto)
 
 * added shorting capability
-* changed default fees to 0.15% because standard taker fees are 0.075% to execute a trade
+* added 'both' as a valid 'backtest.side' param 
+    * entry opens long and closes short, and exit closes long and opens short
+* changed default fees to 0.075% because standard taker fees
 * updated SMA + BB demo strategy examples
 
 Version 0.2.21
