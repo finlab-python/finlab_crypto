@@ -284,7 +284,9 @@ class Strategy(object):
     def backtest(self, ohlcv, variables=None,
                  filters=None, lookback=None, plot=False,
                  signals=False, side='long', cscv_nbins=10,
-                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='close',
+                 cscv_objective=lambda r: r.mean(), html=None, 
+                 compounded=True, execution_price='close',
+                 amount_of_candles=1000,
                  k_colors='world', **args):
 
         """Backtest analysis tool set.
@@ -387,7 +389,7 @@ class Strategy(object):
             raise Exception("side should be 'long' or 'short'")
 
         if (plot or html is not None) and isinstance(entries, pd.Series):
-            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html, k_colors=k_colors)
+            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html, k_colors=k_colors, amount_of_candles=amount_of_candles)
 
         elif plot and isinstance(entries, pd.DataFrame):
 
