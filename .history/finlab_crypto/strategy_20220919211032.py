@@ -284,9 +284,7 @@ class Strategy(object):
     def backtest(self, ohlcv, variables=None,
                  filters=None, lookback=None, plot=False,
                  signals=False, side='long', cscv_nbins=10,
-                 cscv_objective=lambda r: r.mean(), html=None, 
-                 compounded=True, execution_price='close',
-                 amount_of_candles=1000, init_cash=100,
+                 cscv_objective=lambda r: r.mean(), html=None, compounded=True, execution_price='close',
                  k_colors='world', **args):
 
         """Backtest analysis tool set.
@@ -327,7 +325,7 @@ class Strategy(object):
             Plot results display.
 
         Raises:
-            "side should be 'long', 'short' or 'both'": if side isnt any of those.
+            "side should be 'long' or 'short'": if side is not 'short' or 'long'.
         """
 
         variables = variables or dict()
@@ -362,6 +360,7 @@ class Strategy(object):
             return entries, exits, fig_data
 
         if side == 'long':
+
             if not compounded:
                 args['size'] = vbt.settings.portfolio['init_cash'] /  ohlcv_lookback.close[0]
 
@@ -369,11 +368,8 @@ class Strategy(object):
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
 
             portfolio = vbt.Portfolio.from_signals(
-                price,
-                direction='longonly', 
-                entries=entries.fillna(False), 
-                exits=exits.fillna(False), **args)
-
+                price, entries.fillna(False), exits.fillna(False), **args)
+        # TESTING SHORTING ADDITION CAPABILTIES
         elif side == 'short':
             if not compounded:
                 args['size'] = vbt.settings.portfolio['init_cash'] / ohlcv_lookback.close[0]
@@ -382,29 +378,16 @@ class Strategy(object):
             price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
 
             portfolio = vbt.Portfolio.from_signals(
-                price,
-                direction='shortonly',
-                entries=entries.fillna(False), 
-                exits=exits.fillna(False), **args)
+                price, 
+                direction=Direction.ShortOnly,
+                short_entries=entries.fillna(False), 
+                short_exits=exits.fillna(False), **args)
 
-        elif side =='both':
-            if not compounded:
-                args['size'] = vbt.settings.portfolio['init_cash'] / ohlcv_lookback.close[0]
-
-            assert execution_price == 'close' or execution_price == 'open'
-            price = ohlcv_lookback[execution_price] if execution_price == 'close' else ohlcv_lookback[execution_price].shift(-1).bfill()
-
-            portfolio = vbt.Portfolio.from_signals(
-                price,
-                direction='both',
-                entries=entries.fillna(False), 
-                exits=exits.fillna(False), **args)
         else:
-            raise Exception("side should be 'long' or 'short' or 'both'")
+            raise Exception("side should be 'long' or 'short'")
 
         if (plot or html is not None) and isinstance(entries, pd.Series):
-            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, 
-                          html=html, k_colors=k_colors, amount_of_candles=amount_of_candles)
+            plot_strategy(ohlcv_lookback, entries, exits, portfolio, fig_data, html=html, k_colors=k_colors)
 
         elif plot and isinstance(entries, pd.DataFrame):
 

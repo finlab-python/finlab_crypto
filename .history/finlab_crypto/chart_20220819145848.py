@@ -115,7 +115,8 @@ def chart(dfstock, overlaps=dict(), figures=dict(), markers=dict(), markerlines=
     #################
 
     overlap_chart = (
-        Line().add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
+        Line()
+        .add_xaxis(xaxis_data=dfstock.index.astype(str).to_list())
     )
     for name, o in overlaps.items():
         overlap_chart.add_yaxis(
