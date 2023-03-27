@@ -254,7 +254,7 @@ def plot_combination(portfolio, cscv_result=None, metric='final_value'):
     # performance degradation
     axes[1].title.set_text('Performance degradation')
     x, y = pd.DataFrame([results['R_n_star'], results['R_bar_n_star']]).dropna(axis=1).values
-    sns.regplot(x, y, ax=axes[1])
+    sns.regplot(x=x, y=y, ax=axes[1])
     #axes[1].set_xlim(min(results['R_n_star']) * 1.2,max(results['R_n_star']) * 1.2)
     #axes[1].set_ylim(min(results['R_bar_n_star']) * 1.2,max(results['R_bar_n_star']) * 1.2)
     axes[1].set_xlabel('In-sample Performance')
