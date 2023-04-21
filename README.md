@@ -137,6 +137,10 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.23
+
+* fix binance min_notional not found
+
 Version 0.2.22
 
 * fix compatability of seaborn in cscv algorithm plotting
