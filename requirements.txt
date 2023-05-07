@@ -5,4 +5,4 @@ vectorbt
 statsmodels>=0.10.2
 tqdm>=4.41.1
 seaborn>=0.11.0
-numpy==1.20.0
+numpy>=1.20.0
