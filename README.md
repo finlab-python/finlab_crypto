@@ -137,7 +137,7 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
-Version 0.2.25
+Version 0.2.26
 
 * fix dependency in colab
 
