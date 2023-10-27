@@ -174,11 +174,14 @@ def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None, k_color
     c.load_javascript()
     if html is not None:
         c.render(html)
-    else:
-        c.render()
-        display(HTML(filename='render.html'))
 
-    return
+    c.render('render.html')
+
+    from IPython.display import HTML, display
+    display(HTML('render.html'))
+        #display(HTML(filename='render.html'))
+
+    return c
 
 def plot_combination(portfolio, cscv_result=None, metric='final_value'):
 
@@ -231,6 +234,10 @@ def plot_combination(portfolio, cscv_result=None, metric='final_value'):
             s = getattr(portfolio, item)()
             s = s.replace([np.inf, -np.inf], np.nan)
             results[name] = s.groupby(name).mean()
+
+            if all(isinstance(idx, str) for idx in results[name].index):
+                results[name] = results[name].reset_index(drop=True)
+
         results = pd.DataFrame(results)
         axes[i].title.set_text(item)
         results.plot(ax=axes[i])
@@ -303,7 +310,7 @@ def variable_visualization(portfolio):
         performance = performance_dropdwon.value
 
         with out:
-            out.clear_output()
+            # out.clear_output()
             if name1 != name2:
                 df = (getattr(portfolio, performance)()
                       .reset_index().groupby([name1, name2]).mean()[performance]
@@ -313,6 +320,7 @@ def variable_visualization(portfolio):
                 sns.heatmap(df)
             else:
                 getattr(portfolio, performance)().groupby(name1).mean().plot()
+
             plt.show()
 
 

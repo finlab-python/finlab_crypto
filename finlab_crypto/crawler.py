@@ -85,7 +85,7 @@ def get_all_binance(symbol, kline_size, save=True, client=Client()):
     data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
     if len(data_df) > 0:
         temp_df = pd.DataFrame(data)
-        data_df = data_df.append(temp_df)
+        data_df = pd.concat([data_df, temp_df])
     else:
         data_df = data
     data_df.set_index('timestamp', inplace=True)
@@ -165,7 +165,7 @@ def get_all_bitmex(symbol, kline_size, save=True, client=None):
             data = bitmex_client.Trade.Trade_getBucketed(symbol=symbol, binSize=kline_size, count=batch_size,
                                                          startTime=new_time).result()[0]
             temp_df = pd.DataFrame(data)
-            data_df = data_df.append(temp_df)
+            data_df = pd.concat([data_df, temp_df])
 
     data_df.set_index('timestamp', inplace=True)
     data_df = data_df[~data_df.index.duplicated(keep='last')]
