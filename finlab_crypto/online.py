@@ -779,13 +779,13 @@ class TradingPortfolio():
         if addition_usdt > 0:
             print('WARRN**: additional usdt is required: ', addition_usdt, ' USD')
 
-        p = position.loc[position.index[(position != position.shift()).abs().sum(axis=1) != 0] | position.index[-1:]]
+        p = position.loc[position.index[(position != position.shift()).abs().sum(axis=1) != 0].union(position.index[-1:])]
         p.index = p.index.tz_localize(None)
 
         ohlcv_usdt_close = pd.DataFrame({name: s.close for name, s in ohlcv_usdt.items()})
         ohlcv_usdt_close.index = ohlcv_usdt_close.index.tz_localize(None)
 
-        rebalance_time = (p.index & ohlcv_usdt_close.index)
+        rebalance_time = (p.index.intersection(ohlcv_usdt_close.index))
 
         ohlcv_usdt_close = ohlcv_usdt_close.loc[rebalance_time]
         p = p.loc[rebalance_time].fillna(0)

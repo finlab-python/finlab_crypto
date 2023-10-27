@@ -32,7 +32,7 @@ import copy
 import vectorbt as vbt
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections import Iterable
+from collections.abc import Iterable
 
 
 class Filter(object):
