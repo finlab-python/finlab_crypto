@@ -146,6 +146,7 @@ Version 0.2.26
 
 * fix dependency of python 3.10
 
+Version 0.2.25
 Version 0.2.24
 
 * fix dependency in colab
