@@ -502,10 +502,11 @@ class TradingPortfolio():
             filters = self.ticker_info._list_select(self.ticker_info.exinfo['symbols'], 'symbol', symbol)['filters']
             min_lot_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['minQty']
             step_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['stepSize']
-            min_notional = self.ticker_info._list_select(filters, 'filterType', 'NOTIONAL')
             # Binance API may not return a value for the "min_notional" field for certain symbols in the filter section.
+            min_notional = self.ticker_info._list_select(filters, 'filterType', 'MIN_NOTIONAL')
+            notional = self.ticker_info._list_select(filters, 'filterType', 'NOTIONAL')
 
-            min_notional = min_notional['minNotional'] if min_notional else 10.0
+            min_notional = min_notional['minNotional'] if min_notional else notional['minNotional'] if notional else 10.0
 
             return {
                 'min_lot_size': min_lot_size,
