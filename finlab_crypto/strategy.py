@@ -110,7 +110,6 @@ class Filter(object):
                 results = self.func(ohlcv)
 
                 v = remove_pd_object(v)
-
                 if isinstance(results, Iterable):
                     signals[str(v)], fig_data = results
                 else:

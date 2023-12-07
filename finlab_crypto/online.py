@@ -377,7 +377,7 @@ class TradingPortfolio():
         position = position[position.index.str[:2] != 'LD']
 
         # refine asset index
-        all_assets = base_asset_value.index | quote_asset_value.index | position.index
+        all_assets = base_asset_value.index.union(quote_asset_value.index).union(position.index)
 
         base_asset_value = base_asset_value.reindex(all_assets).fillna(0)
         quote_asset_value = quote_asset_value.reindex(all_assets).fillna(0)
@@ -451,14 +451,14 @@ class TradingPortfolio():
                     txn_btc[symbol] = amount
                     continue
 
-        # assumption: self.default_stable_coin can be the quote asset for all alt-coins
-        transaction_btc = increase_asset_amount.append(decrease_asset_amount)
+        # assumption: self.default_stable_coin can be the quote asset for all alt-coins        
+        transaction_btc = pd.concat([increase_asset_amount, decrease_asset_amount])
         transaction_btc.index = transaction_btc.index + self.default_stable_coin
 
         if self.default_stable_coin in transaction_btc.index:
             transaction_btc.pop(self.default_stable_coin+self.default_stable_coin)
-
-        transaction_btc = transaction_btc.append(pd.Series(txn_btc))
+        
+        transaction_btc = pd.concat([transaction_btc, pd.Series(txn_btc)])
 
         transaction = transaction_btc.to_frame(name='value_in_btc')
 
@@ -502,10 +502,11 @@ class TradingPortfolio():
             filters = self.ticker_info._list_select(self.ticker_info.exinfo['symbols'], 'symbol', symbol)['filters']
             min_lot_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['minQty']
             step_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['stepSize']
-            min_notional = self.ticker_info._list_select(filters, 'filterType', 'NOTIONAL')
             # Binance API may not return a value for the "min_notional" field for certain symbols in the filter section.
+            min_notional = self.ticker_info._list_select(filters, 'filterType', 'MIN_NOTIONAL')
+            notional = self.ticker_info._list_select(filters, 'filterType', 'NOTIONAL')
 
-            min_notional = min_notional['minNotional'] if min_notional else 10.0
+            min_notional = min_notional['minNotional'] if min_notional else notional['minNotional'] if notional else 10.0
 
             return {
                 'min_lot_size': min_lot_size,
