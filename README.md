@@ -137,6 +137,11 @@ BINANCE_KEY=<<YOUR_BINANCE_KEY>> BINANCE_SECRET=<<YOUR_BINANCE_SECRET>> coverage
 ```
 
 ## Updates
+Version 0.2.27
+
+* support new version of pandas 3.8
+* support 3.8 syntax
+
 Version 0.2.26
 
 * fix dependency of python 3.10
