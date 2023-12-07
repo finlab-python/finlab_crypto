@@ -377,7 +377,7 @@ class TradingPortfolio():
         position = position[position.index.str[:2] != 'LD']
 
         # refine asset index
-        all_assets = base_asset_value.index | quote_asset_value.index | position.index
+        all_assets = base_asset_value.index.union(quote_asset_value.index).union(position.index)
 
         base_asset_value = base_asset_value.reindex(all_assets).fillna(0)
         quote_asset_value = quote_asset_value.reindex(all_assets).fillna(0)
@@ -451,14 +451,14 @@ class TradingPortfolio():
                     txn_btc[symbol] = amount
                     continue
 
-        # assumption: self.default_stable_coin can be the quote asset for all alt-coins
-        transaction_btc = increase_asset_amount.append(decrease_asset_amount)
+        # assumption: self.default_stable_coin can be the quote asset for all alt-coins        
+        transaction_btc = pd.concat([increase_asset_amount, decrease_asset_amount])
         transaction_btc.index = transaction_btc.index + self.default_stable_coin
 
         if self.default_stable_coin in transaction_btc.index:
             transaction_btc.pop(self.default_stable_coin+self.default_stable_coin)
-
-        transaction_btc = transaction_btc.append(pd.Series(txn_btc))
+        
+        transaction_btc = pd.concat([transaction_btc, pd.Series(txn_btc)])
 
         transaction = transaction_btc.to_frame(name='value_in_btc')
 
