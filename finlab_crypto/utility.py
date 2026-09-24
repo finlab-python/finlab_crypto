@@ -189,7 +189,7 @@ def plot_combination(portfolio, cscv_result=None, metric='final_value'):
 
     axes[1].set_title('Drawdown (%)')
     for n in DRAWDOWN_TOP_NS:
-        portfolio.drawdown()[ranking.index[-n:]].min(axis=1).plot(linewidth=1, ax=axes[1], label=f'top {n}')
+        (portfolio.drawdown()[ranking.index[-n:]].min(axis=1) * 100).plot(linewidth=1, ax=axes[1], label=f'top {n}')
     axes[1].set(xlabel='time', ylabel='drawdown (%)')
     axes[1].legend()
     plt.show()
