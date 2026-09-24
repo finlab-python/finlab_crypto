@@ -1,54 +1,43 @@
-from finlab_crypto.crawler import GlassnodeClient
-from binance.client import Client
-from datetime import timezone
-import finlab_crypto
 import pandas as pd
-import unittest
-import warnings
-import datetime
-import time
-import json
-import os
+import pytest
 
-warnings.filterwarnings(
-    'ignore',
-    category=ResourceWarning,
-    message='ResourceWarning: unclosed'
-)
+from finlab_crypto import crawler
 
-class TestCrawlerMethods(unittest.TestCase):
+pytestmark = pytest.mark.network
 
-    def setUp(self):
-        finlab_crypto.setup()
 
-    def test_crawler_binance(self):
-        ohlcv = finlab_crypto.crawler.get_all_binance('ADAUSDT', '4h')
-        self.assertEqual('close' in ohlcv.columns, True)
-        self.assertEqual(len(ohlcv) > 0, True)
-        self.assertEqual(os.path.exists('history/ADAUSDT-4h-data.csv'), True)
+def test_get_all_binance_downloads_and_caches():
+    ohlcv = crawler.get_all_binance('BTCUSDT', '1d')
 
-    def test_crawler_n_bars(self):
-        key = os.environ.get('BINANCE_KEY')
-        secret = os.environ.get('BINANCE_SECRET')
-        client = Client(key, secret)
-        for i in [10, 100, 300, 1000]:
-            ohlcv = finlab_crypto.crawler.get_nbars_binance('ADAUSDT', '4h', i, client=client)
-            self.assertEqual(len(ohlcv) >= i, True)
-            time.sleep(3)
+    assert {'open', 'high', 'low', 'close', 'volume'} <= set(ohlcv.columns)
+    assert ohlcv.index.tz is not None and ohlcv.index.is_monotonic_increasing
+    assert not ohlcv.index.duplicated().any()
+    assert ohlcv.index[0] == pd.Timestamp('2017-08-17', tz='UTC')
+    assert (crawler.HISTORY_DIR / 'BTCUSDT-1d-data.csv').is_file()
 
-    def test_glassnode_api(self):
 
-        def get_glassnode(url, api_key):
+def test_get_all_binance_extends_the_cache():
+    full = crawler.get_all_binance('ETHBTC', '1d')
+    path = crawler.HISTORY_DIR / 'ETHBTC-1d-data.csv'
+    full.iloc[:-30].to_csv(path)
 
-            gn = GlassnodeClient()
-            gn.api_key = api_key
-            ret = gn.get(url)
-            return ret.astype(float)
+    resumed = crawler.get_all_binance('ETHBTC', '1d')
 
-        sopr = get_glassnode('https://api.glassnode.com/v1/metrics/indicators/sopr',
-                             'c5846d6e-b7ed-4d84-9339-03e88e6db3af')
+    pd.testing.assert_frame_equal(resumed.iloc[:-1], full.iloc[:-1])
 
-        self.assertEqual(len(sopr) >= 10, True)
 
-    # todo test glassnode
-    # todo test bitmex
+@pytest.mark.parametrize('nbars', [10, 1000, 2500])
+def test_get_nbars_binance(nbars):
+    ohlcv = crawler.get_nbars_binance('BTCUSDT', '4h', nbars)
+
+    assert len(ohlcv) == nbars
+    assert ohlcv.index.is_monotonic_increasing and not ohlcv.index.duplicated().any()
+    assert (ohlcv.index.to_series().diff().dropna() == pd.Timedelta('4h')).all()
+
+
+def test_exchange_info_and_tickers():
+    symbols = {s['symbol']: s for s in crawler.get_exchange_info()['symbols']}
+    prices = {t['symbol']: float(t['price']) for t in crawler.get_symbol_tickers()}
+
+    assert symbols['ETHBTC']['baseAsset'] == 'ETH'
+    assert prices['BTCUSDT'] > 0

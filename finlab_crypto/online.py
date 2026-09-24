@@ -1,328 +1,280 @@
-import sys
-import time
-import plotly.express as px
-from datetime import timezone
+"""Live trading on Binance spot: strategy signals -> target positions -> orders.
+
+Market data (prices, symbols, klines) comes from Binance's public endpoint and
+works anywhere. Reading balances and placing orders needs an API key and
+``python-binance`` (``pip install "finlab_crypto[trade]"``), and must run
+where Binance serves its API: api.binance.com refuses US IP addresses
+(HTTP 451), which includes Google Colab and most US cloud regions.
+
+Without an API key, ``TradingPortfolio`` runs as a dry run on an empty
+account: signals, positions and orders are computed, nothing is sent.
+"""
+from functools import partial
+
+import matplotlib.pyplot as plt
 import pandas as pd
-import datetime
-import warnings
 from IPython.display import display
-from binance.enums import *
-from finlab_crypto.crawler import get_nbars_binance, get_all_binance
-from binance.client import Client
+
+from finlab_crypto.crawler import get_all_binance, get_exchange_info, get_nbars_binance, get_symbol_tickers
+
+ORDER_MODES = ('TEST', 'MARKET', 'LIMIT')
+DEFAULT_STABLE_COIN = 'USDT'
+DEFAULT_REBALANCE_THRESHOLD = 0.03
+DEFAULT_MIN_NOTIONAL = 10.0
+STEP_SIZE_DECIMALS = 9
+AMOUNT_TOLERANCE = 1e-4
+TRANSACTION_TOLERANCE = 1e-3
+SIMPLE_EARN_PREFIX = 'LD'
+RESTRICTED_LOCATION_STATUS = 451
 
 
-class TickerInfo():
-    """Ticker basic info.
+def _binance_client(key, secret):
+    try:
+        from binance.client import Client
+        from binance.exceptions import BinanceAPIException
+    except ImportError as error:
+        raise ImportError('Trading needs python-binance: pip install "finlab_crypto[trade]"') from error
+    try:
+        return Client(api_key=key, api_secret=secret)
+    except BinanceAPIException as error:
+        if error.status_code == RESTRICTED_LOCATION_STATUS:
+            raise RuntimeError('api.binance.com refuses this location (HTTP 451, e.g. US IPs such as Colab). '
+                               'Place orders from a machine outside the US, e.g. your own computer or a '
+                               'Cloud Function in asia-east1.') from error
+        raise
 
-    Get asset amount and convert price to BTC .
 
-    Attributes:
-        client: A Binance client object where api_key, api_secret is required.
+class TickerInfo:
+    """Symbols, prices and (optionally) account balances.
 
+    Args:
+      client: python-binance ``Client`` with API key, or None for an empty account.
     """
-    def __init__(self, client):
-        self.exinfo = client.get_exchange_info()
-        self.info = client.get_account()
-        self.tickers = client.get_symbol_ticker()
 
-    @staticmethod
-    def _list_select(list, key, value):
-        ret = [l for l in list if l[key] == value]
-        if len(ret) == 0:
-            return None
-        else:
-            return ret[0]
+    def __init__(self, client=None):
+        self.exinfo = get_exchange_info()
+        self.tickers = get_symbol_tickers()
+        self.info = client.get_account() if client else {'balances': []}
+        self._symbols = {s['symbol']: s for s in self.exinfo['symbols']}
+        self._prices = {t['symbol']: float(t['price']) for t in self.tickers}
 
     def get_base_asset(self, symbol):
-        """Get base asset data of a given symbol.
-
-        Args:
-          symbol: A str of trading target name.
-
-        Returns:
-            A str of base asset (ex: 'BTC').
-        """
-        sinfo = self._list_select(self.exinfo['symbols'], 'symbol', symbol)
-        return sinfo['baseAsset']
+        """Base asset of a symbol, ex: 'ETH' for 'ETHBTC'."""
+        return self._symbols[symbol]['baseAsset']
 
     def get_quote_asset(self, symbol):
-        """Get quote asset data of a given symbol.
+        """Quote asset of a symbol, ex: 'BTC' for 'ETHBTC'."""
+        return self._symbols[symbol]['quoteAsset']
 
-        Args:
-          symbol: A str of trading target name.
+    def has_symbol(self, symbol):
+        return symbol in self._prices
 
-        Returns:
-          A float of quote asset.
-        """
-        sinfo = self._list_select(self.exinfo['symbols'], 'symbol', symbol)
-        return sinfo['quoteAsset']
+    def get_price(self, symbol):
+        return self._prices[symbol]
 
     def get_asset_price_in_btc(self, asset):
-        """Convert price to BTC .
-
-        Args:
-          asset: A str of asset name (ex: 'ETH').
-
-        Returns:
-          A float of price in BTC.
-        """
+        """Price of one unit of ``asset`` in BTC, or None without a BTC market."""
         if asset == 'BTC':
             return 1
-
-        ret = self._list_select(self.tickers, 'symbol', asset + 'BTC')
-
-        if ret is not None:
-            return float(ret['price'])
-
-        ret = self._list_select(self.tickers, 'symbol', 'BTC' + asset)
-        if ret is not None:
-            return 1 / float(ret['price'])
-
+        if self.has_symbol(asset + 'BTC'):
+            return self.get_price(asset + 'BTC')
+        if self.has_symbol('BTC' + asset):
+            return 1 / self.get_price('BTC' + asset)
         return None
 
+    def get_filters(self, symbol):
+        """Lot size, step size and minimum order value of a symbol."""
+        filters = {f['filterType']: f for f in self._symbols[symbol]['filters']}
+        notional = filters.get('MIN_NOTIONAL') or filters.get('NOTIONAL') or {'minNotional': DEFAULT_MIN_NOTIONAL}
+        return {
+            'min_lot_size': float(filters['LOT_SIZE']['minQty']),
+            'step_size': float(filters['LOT_SIZE']['stepSize']),
+            'min_notional': float(notional['minNotional']),
+        }
 
-class TradingMethod():
-    """Trading method in online init setting.
+    def balances(self):
+        """Free spot balances, excluding Simple Earn (``LD*``) positions."""
+        free = {b['asset']: float(b['free']) for b in self.info['balances']
+                if float(b['free']) != 0 and not b['asset'].startswith(SIMPLE_EARN_PREFIX)}
+        return pd.Series(free, index=pd.Index(list(free), dtype=object), dtype=float)
 
-    Create trading method object for TradingPortfolio register .
 
-    Attributes:
-        symbols: A list of trading pair (ex: ['USDTBTC','ETHBTC']).
-        freq: A str of trading time period (ex: '4h').
-        lookback: An int of the length of historical data (ex:1000).
-        strategy: A function that is your customized strategy (ex:trend_strategy).
-        variables: A dict of your customized strategy attributes (ex:dict(name='sma',n1=30,n2=130,),).
-        weight_btc: A float of btc for each commodity operation (ex: 0.2).
-        filters: A dict that is your customized filter (ex:{}).
-        name: A str of your trading method name (ex:'altcoin-trend-hullma').
+class TradingMethod:
+    """A strategy applied to a list of symbols with a position size.
 
+    Args:
+      symbols: Trading pairs, ex: ['ETHBTC', 'ADABTC'].
+      freq: Candle interval, ex: '4h'.
+      lookback: Number of candles used to compute the latest signal.
+      strategy: A ``@Strategy``.
+      variables: Strategy parameters, ex: {'name': 'sma', 'n1': 30, 'n2': 130}.
+      weight_btc: Position size per symbol in BTC, or {'SYMBOL': size, 'default': size}.
+      weight, weight_unit: Position size in another unit, ex: weight=500, weight_unit='USDT'.
+      filters: Filters passed to ``strategy.backtest``.
+      name: Display name.
+      execution_price: 'close' or 'open', see ``Strategy.backtest``.
     """
-    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc=None, weight=None, weight_unit=None, filters=None, name='', execution_price='close'):
+
+    def __init__(self, symbols, freq, lookback, strategy, variables, weight_btc=None, weight=None,
+                 weight_unit=None, filters=None, name='', execution_price='close'):
+        if weight_btc is None and weight is None:
+            raise ValueError('weight_btc or weight is missing')
+        if weight_btc is not None and weight is not None:
+            raise ValueError('weight_btc and weight should not be assigned at the same time')
+
         self.symbols = symbols
         self.freq = freq
         self.lookback = lookback
         self.strategy = strategy
         self.variables = variables
         self.weight_btc = weight_btc
-        self.weight = weight
-        self.weight_unit = weight_unit
+        self.weight = weight_btc if weight_btc is not None else weight
+        self.weight_unit = 'BTC' if weight_btc is not None else weight_unit
         self.filters = filters
         self.name = name
-        self.execution_price=execution_price
+        self.execution_price = execution_price
 
-        if self.weight_btc is None and self.weight is None:
-            raise Exception("weight_btc or weight is missing.")
+    def weight_of(self, symbol):
+        """Position size of ``symbol`` in ``weight_unit``."""
+        if isinstance(self.weight, dict):
+            return self.weight.get(symbol, self.weight['default'])
+        return self.weight
 
-        if self.weight_btc is not None and self.weight is not None:
-            raise Exception("weight_btc and weight should not be assigned at the same time")
 
-        if self.weight_btc:
-            self.weight = self.weight_btc
-            self.weight_unit = 'BTC'
+class TradingPortfolio:
+    """Several TradingMethods sharing one Binance account.
 
-class TradingPortfolio():
-    """Connect Binance account.
-
-    The core class to connect Binance  with API, in order to connect account info,
-    register strategt.
-
-    Attributes:
-        binance_key: A str of is binance authorization key.
-        binance_secret: A str of is binance authorization secret.
-
+    Args:
+      binance_key, binance_secret: API key pair. Leave empty for a dry run.
+      execute_before_candle_complete: Use the still-forming candle for signals.
     """
-    def __init__(self, binance_key, binance_secret, execute_before_candle_complete=False):
-        self._client = Client(api_key=binance_key, api_secret=binance_secret)
+
+    def __init__(self, binance_key=None, binance_secret=None, execute_before_candle_complete=False):
+        self._client = _binance_client(binance_key, binance_secret) if binance_key else None
         self._trading_methods = []
         self._margins = {}
         self.ticker_info = TickerInfo(self._client)
-        self.default_stable_coin = 'USDT'
+        self.default_stable_coin = DEFAULT_STABLE_COIN
         self.execute_before_candle_complete = execute_before_candle_complete
+
+    @property
+    def is_dry_run(self):
+        return self._client is None
 
     def set_default_stable_coin(self, token):
         self.default_stable_coin = token
 
     def register(self, trading_method):
-        """Rigister TradingMethod object.
-        Args:
-          trading_method: A object of TradingMethod().
-        """
-
+        """Add a TradingMethod."""
         if trading_method.execution_price == 'open' and self.execute_before_candle_complete:
-            raise Exception("Detect execute_before_candle_complete=True and trading_method.execution_price is open"
-                    + "Please set trading_method.execute_before_candle_complete to False"
-                    + " and execute live trading right after candles are complete.")
-
+            raise ValueError('execution_price="open" needs complete candles: '
+                             'set execute_before_candle_complete=False and trade right after candles close')
         self._trading_methods.append(trading_method)
 
     def register_margin(self, asset, weight_btc):
-        """Rigister weight_btc as operation amount.
-        Args:
-          asset: A str of asset name (ex: 'USDT')
-          weight_btc: A float of btc for each commodity operation (ex: 0.2)
-        """
+        """Keep an extra ``weight_btc`` amount of ``asset`` (ex: 'USDT', 1000) outside the strategies."""
         self._margins[asset] = weight_btc
 
-    def get_all_symbol_lookback(self):
-        """Get all symbol lookback.
-        Use in get_ohlcvs(self) function.
-        Returns:
-            A dict of OHLCV lookback.
-
-        """
-        symbol_lookbacks = {}
-        addition = {}
-
-        weight_units = set()
-        max_lookback = 0
-
-        for method in self._trading_methods:
-            weight_units.add((method.weight_unit, method.freq))
-            max_lookback = max(max_lookback, method.lookback)
-            for a in method.symbols:
-
-                quote_asset = self.ticker_info.get_quote_asset(a)
-                base_asset = self.ticker_info.get_base_asset(a)
-                if (a, method.freq) not in symbol_lookbacks or method.lookback > symbol_lookbacks[(a, method.freq)]:
-                    symbol_lookbacks[(a, method.freq)] = method.lookback
-
-                if base_asset != method.weight_unit:
-                    new_symbol = base_asset + method.weight_unit
-                    if (new_symbol, method.freq) not in addition or method.lookback > addition[(new_symbol, method.freq)]:
-                        addition[(new_symbol, method.freq)] = method.lookback
-
-        for w, f in weight_units:
-            if w != 'BTC':
-                addition[('BTC' + w, f)] = max_lookback
-
-        # add quote asset historical data
-        # for (symbol, freq), lookback in symbol_lookbacks.items():
-        #     base_asset = self.ticker_info.get_base_asset(symbol)
-        #     if base_asset != self.quote_asset:
-        #         new_symbol = base_asset + self.quote_asset
-        #         addition[(new_symbol, freq)] = lookback
-
-        return {**symbol_lookbacks, **addition}
-
-    def get_ohlcvs(self):
-        """Getting histrical price data through binance api.
-
-        Returns:
-            A DataFrame of OHLCV data , the number of data length is lookback.
-
-        """
-        symbol_lookbacks = self.get_all_symbol_lookback()
-
-        ohlcvs = {}
-        for (symbol, freq), lookback in symbol_lookbacks.items():
-            ohlcvs[(symbol, freq)] = get_nbars_binance(symbol, freq, lookback, self._client)
-
-        return ohlcvs
-
-    def get_full_ohlcvs(self):
-        """Getting all histrical price data through binance api.
-
-        Returns:
-            A DataFrame of OHLCV data for all.
-
-        """
-        symbol_lookbacks = self.get_all_symbol_lookback()
-        ohlcvs = {}
-
-        for (symbol, freq), lookback in symbol_lookbacks.items():
-            ohlcvs[(symbol, freq)] = get_all_binance(symbol, freq)
-            time.sleep(3)
-        return ohlcvs
-
-    def get_latest_signals(self, ohlcvs, html=False):
-        """Get latest signals dataframe.
-
-        Choose which strategy to implement on widgets GUI.
-
-        Args:
-          ohlcvs: A dataframe of symbel.
-          html: A bool of controlling html generation.
-
-        Returns:
-          A dataframe of latest_signals data,
-          The last_signals column is bool value of whether to execute the transaction.
-          The value_in_btc column is present value of assets.
-        """
-        ret = []
+    def _results(self, ohlcvs):
+        """Backtest every (method, symbol) pair on ``ohlcvs``."""
+        rows = []
         for method in self._trading_methods:
             for symbol in method.symbols:
-                ohlcv = ohlcvs[(symbol, method.freq)].copy()
+                portfolio = method.strategy.backtest(ohlcvs[(symbol, method.freq)], method.variables,
+                                                     filters=method.filters, freq=method.freq)
+                rows.append({
+                    'name': method.name,
+                    'symbol': symbol,
+                    'freq': method.freq,
+                    'weight': method.weight_of(symbol),
+                    'portfolio': portfolio,
+                    'trading_method': method,
+                    'signal': portfolio.cash().iloc[-1] == 0,
+                })
+        return pd.DataFrame(rows)
 
-                # remove incomplete candle
-                if self.execute_before_candle_complete == False and method.execution_price == 'close':
-                    t = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-                    delta_t = ohlcv.index[-1] - ohlcv.index[-2]
-                    ohlcv = ohlcv.loc[:t-delta_t]
+    def get_all_symbol_lookback(self):
+        """{(symbol, freq): lookback} of every price series the methods need."""
+        lookbacks = {}
+        conversions = {}
+        max_lookback = max((m.lookback for m in self._trading_methods), default=0)
+        for method in self._trading_methods:
+            for symbol in method.symbols:
+                key = (symbol, method.freq)
+                lookbacks[key] = max(lookbacks.get(key, 0), method.lookback)
+                base_asset = self.ticker_info.get_base_asset(symbol)
+                if base_asset != method.weight_unit:
+                    key = (base_asset + method.weight_unit, method.freq)
+                    conversions[key] = max(conversions.get(key, 0), method.lookback)
+            if method.weight_unit != 'BTC':
+                conversions[('BTC' + method.weight_unit, method.freq)] = max_lookback
+        return {**lookbacks, **conversions}
 
-                htmlname = f'{symbol}-{method.freq}-{method.name}.html' if html else None
-                result = method.strategy.backtest(ohlcv,
-                                                  method.variables, filters=method.filters, plot=html,
-                                                  html=htmlname,
-                                                  freq=method.freq, fees=0., slippage=0., execution_price=method.execution_price)
+    def get_ohlcvs(self):
+        """Latest ``lookback`` candles of every needed symbol."""
+        return {(symbol, freq): get_nbars_binance(symbol, freq, lookback)
+                for (symbol, freq), lookback in self.get_all_symbol_lookback().items()}
 
+    def get_full_ohlcvs(self):
+        """Full history of every needed symbol (cached in ./history/)."""
+        return {(symbol, freq): get_all_binance(symbol, freq) for symbol, freq in self.get_all_symbol_lookback()}
+
+    @staticmethod
+    def _price(ohlcvs, symbol, freq, column, time=None):
+        """Price of ``symbol`` at ``time`` (latest if None); 1 when no conversion is needed."""
+        if symbol is None:
+            return 1
+        prices = ohlcvs[(symbol, freq)][column]
+        return prices.iloc[-1] if time is None else prices.loc[time]
+
+    def get_latest_signals(self, ohlcvs, html=False):
+        """Latest signal, entry and value (in BTC) of every (method, symbol).
+
+        Args:
+          ohlcvs: Output of ``get_ohlcvs()``.
+          html: Also save each strategy chart to ``{symbol}-{freq}-{name}.html``.
+        """
+        rows = []
+        now = pd.Timestamp.now(tz='UTC')
+        for method in self._trading_methods:
+            price_column = method.execution_price
+            price_in_unit = partial(self._price, ohlcvs, freq=method.freq, column=price_column)
+            for symbol in method.symbols:
+                ohlcv = ohlcvs[(symbol, method.freq)]
+                if not self.execute_before_candle_complete and price_column == 'close':
+                    ohlcv = ohlcv.loc[:now - (ohlcv.index[-1] - ohlcv.index[-2])]
+
+                html_name = f'{symbol}-{method.freq}-{method.name}.html' if html else None
+                result = method.strategy.backtest(ohlcv, method.variables, filters=method.filters, plot=html,
+                                                  html=html_name, freq=method.freq, fees=0., slippage=0.,
+                                                  execution_price=price_column)
                 signal = result.cash().iloc[-1] == 0
-                return_ = 0
+                weight = method.weight_of(symbol)
 
-                # find weight if it is in the nested dictionary
-                weight = method.weight
-                if isinstance(weight, dict):
-                    weight = (weight[symbol]
-                        if symbol in weight else weight['default'])
+                base_asset = self.ticker_info.get_base_asset(symbol)
+                base_symbol = None if base_asset == method.weight_unit else base_asset + method.weight_unit
+                btc_symbol = None if method.weight_unit == 'BTC' else 'BTC' + method.weight_unit
 
-                entry_price = 0
+                entry_price = return_ = amount = value_in_btc = 0
                 entry_time = 0
-                value_in_btc = 0
-                trade_price_type = method.execution_price
                 if signal:
-                    txn = result.positions.records
-                    rds = result.orders.records
-                    return_ = ohlcv[trade_price_type].iloc[-1] / rds['price'].iloc[-1] - 1
-                    entry_price = rds['price'].iloc[-1]
-                    entry_time = ohlcv.index[int(rds.iloc[-1]['idx'])]
+                    orders = result.orders.records
+                    entry_price = orders['price'].iloc[-1]
+                    execution_offset = 1 if price_column == 'open' else 0
+                    entry_time = ohlcv.index[int(orders['idx'].iloc[-1]) + execution_offset]
+                    return_ = ohlcv[price_column].iloc[-1] / entry_price - 1
 
-                    base_asset = self.ticker_info.get_base_asset(symbol)
-                    quote_asset = self.ticker_info.get_quote_asset(symbol)
-
-                    if base_asset != method.weight_unit:
-                        quote_symbol = base_asset + method.weight_unit
-                        quote_history = ohlcvs[(quote_symbol, method.freq)]
-                        quote_asset_price_previous = quote_history[trade_price_type].loc[entry_time]
-                        quote_asset_price_now = quote_history[trade_price_type].iloc[-1]
-                    else:
-                        quote_asset_price_previous = 1
-                        quote_asset_price_now = 1
-
-                    if method.weight_unit != 'BTC':
-                        btc_quote_price_previous = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].loc[entry_time]
-                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].iloc[-1]
-                    else:
-                        btc_quote_price_previous = 1
-                        btc_quote_price_now = 1
-
-                    previous_weight_btc = (weight / btc_quote_price_previous)
-                    value_in_btc = previous_weight_btc / quote_asset_price_previous * quote_asset_price_now / (btc_quote_price_now / btc_quote_price_previous)
-                    weight_btc = previous_weight_btc
-                    previous_price_btc = quote_asset_price_previous  / btc_quote_price_previous
-                    present_price_btc = quote_asset_price_now  / btc_quote_price_now
-                    amount = previous_weight_btc / previous_price_btc
-                    present_amount = value_in_btc / present_price_btc
-                    assert 0.9999 < amount / present_amount < 1.0001
-
+                    base_then, base_now = price_in_unit(base_symbol, time=entry_time), price_in_unit(base_symbol)
+                    btc_then, btc_now = price_in_unit(btc_symbol, time=entry_time), price_in_unit(btc_symbol)
+                    weight_btc = weight / btc_then
+                    value_in_btc = weight_btc / base_then * base_now / (btc_now / btc_then)
+                    amount = weight_btc / (base_then / btc_then)
+                    present_amount = value_in_btc / (base_now / btc_now)
+                    assert abs(amount / present_amount - 1) < AMOUNT_TOLERANCE
                 else:
-                    if method.weight_unit != 'BTC':
-                        btc_quote_price_now = ohlcvs[('BTC' + method.weight_unit, method.freq)][trade_price_type].iloc[-1]
-                    else:
-                        btc_quote_price_now = 1
+                    weight_btc = weight / price_in_unit(btc_symbol)
 
-                    weight_btc = weight / btc_quote_price_now
-                    amount = 0
-
-                ret.append({
+                rows.append({
                     'symbol': symbol,
                     'method name': method.name,
                     'latest_signal': signal,
@@ -330,538 +282,291 @@ class TradingPortfolio():
                     'freq': method.freq,
                     'return': return_,
                     'amount': amount,
-                    'value_in_btc': value_in_btc * signal,
-                    'latest_price': ohlcv[trade_price_type].iloc[-1],
+                    'value_in_btc': value_in_btc,
+                    'latest_price': ohlcv[price_column].iloc[-1],
                     'entry_price': entry_price,
                     'entry_time': entry_time,
-                    'html': htmlname,
+                    'html': html_name,
                 })
+        return pd.DataFrame(rows)
 
-        ret = pd.DataFrame(ret)
-        return ret
-
-    def calculate_position_size(self, signals, rebalance_threshold=0.03, excluded_assets=list()):
-        """Calculate the proportion of asset orders.
-
-        Calculate data is based on latest signals dataframe.
+    def calculate_position_size(self, signals, rebalance_threshold=DEFAULT_REBALANCE_THRESHOLD, excluded_assets=()):
+        """Compare target positions with the account and derive orders.
 
         Args:
-          signals: A dataframe of signals.
-          rebalance_threshold: A float of rebalance_threshold.
-          excluded_assets: A list of asset name which are excluded calculation.
+          signals: Output of ``get_latest_signals()``.
+          rebalance_threshold: Skip adjustments smaller than this fraction of the target.
+          excluded_assets: Assets never traded (the default stable coin always is).
 
         Returns:
-          diff_value: A dataframe of how many assets to deposit for each cryptocurrency.
-          diff_value_btc: A dataframe of converting cryptocurrency to BTC.
-          transaction: A dataframe of transaction(new order) data.
+          (position, position_in_btc, orders): target vs. present position per
+          asset (in units and in BTC), and the orders to place.
         """
-        if self.default_stable_coin not in excluded_assets:
-            excluded_assets.append(self.default_stable_coin)
+        info = self.ticker_info
+        excluded_assets = {*excluded_assets, self.default_stable_coin}
 
-        signals['base_asset'] = signals.symbol.map(self.ticker_info.get_base_asset)
-        signals['quote_asset'] = signals.symbol.map(self.ticker_info.get_quote_asset)
+        signals = signals.copy()
+        signals['base_asset'] = signals.symbol.map(info.get_base_asset)
+        signals['quote_asset'] = signals.symbol.map(info.get_quote_asset)
         signals['base_value_btc'] = signals.latest_signal * signals.value_in_btc
         signals['quote_value_btc'] = -(signals.latest_signal.astype(int) * signals.weight_btc)
+        quote_assets = set(signals.quote_asset)
 
-        quote_asset_list = list(set(signals.quote_asset))
+        base_value = signals.groupby('base_asset').base_value_btc.sum()
+        quote_value = signals.groupby('quote_asset').quote_value_btc.sum()
+        position = info.balances()
+        all_assets = base_value.index.union(quote_value.index).union(position.index)
 
-        # calculate base and quote assets (in btc term)
-        base_asset_value = pd.Series(signals.base_value_btc.values, index=signals.base_asset)
-        quote_asset_value = pd.Series(signals.quote_value_btc.values, index=signals.quote_asset)
-        base_asset_value = base_asset_value.groupby(level=0).sum()
-        quote_asset_value = quote_asset_value.groupby(level=0).sum()
+        algo_value_btc = base_value.reindex(all_assets, fill_value=0) + quote_value.reindex(all_assets, fill_value=0)
+        position = position.reindex(all_assets, fill_value=0)
+        price_in_btc = pd.Series(all_assets.map(info.get_asset_price_in_btc), index=all_assets, dtype=float)
+        margin_btc = pd.Series(self._margins, dtype=float).reindex(all_assets, fill_value=0) * price_in_btc
+        estimate_btc = algo_value_btc + margin_btc
 
-        # get position
-        position = pd.Series({i['asset']: i['free'] for i in self.ticker_info.info['balances']
-                              if float(i['free']) != 0}).astype(float)
-        position = position[position.index.str[:2] != 'LD']
-
-        # refine asset index
-        all_assets = base_asset_value.index.union(quote_asset_value.index).union(position.index)
-
-        base_asset_value = base_asset_value.reindex(all_assets).fillna(0)
-        quote_asset_value = quote_asset_value.reindex(all_assets).fillna(0)
-        position = position.reindex(all_assets).fillna(0)
-
-        # calculate algo value
-        algo_value_in_btc = base_asset_value + quote_asset_value
-        asset_price_in_btc = position.index.map(self.ticker_info.get_asset_price_in_btc)
-        algo_value = algo_value_in_btc / asset_price_in_btc
-
-        # calculate diffierence
-        margin_position = pd.Series(self._margins).reindex(all_assets).fillna(0)
-
-        diff_value_btc = pd.DataFrame({
-            'algo_p': algo_value_in_btc,
-            'margin_p': margin_position * asset_price_in_btc,
-            'estimate_p': algo_value_in_btc + margin_position * asset_price_in_btc,
-            'present_p': position * asset_price_in_btc,
-            'difference': (algo_value_in_btc + margin_position * asset_price_in_btc).clip(0,None) - position * asset_price_in_btc,
-            'rebalance_threshold': (algo_value_in_btc + margin_position * asset_price_in_btc).abs() * rebalance_threshold,
+        position_btc = pd.DataFrame({
+            'algo_p': algo_value_btc,
+            'margin_p': margin_btc,
+            'estimate_p': estimate_btc,
+            'present_p': position * price_in_btc,
+            'difference': estimate_btc.clip(0, None) - position * price_in_btc,
+            'rebalance_threshold': estimate_btc.abs() * rebalance_threshold,
         })
-        diff_value_btc['rebalance'] = diff_value_btc['difference'].abs() > diff_value_btc['rebalance_threshold']
-        diff_value_btc.loc[quote_asset_list, 'rebalance'] = True
+        position_btc['rebalance'] = position_btc.difference.abs() > position_btc.rebalance_threshold
+        traded = all_assets.isin(signals.quote_asset) | all_assets.isin(signals.base_asset)
+        position_btc['excluded'] = ~traded | all_assets.isin(list(excluded_assets))
 
-        # excluding checking of asset positions
+        rebalance_btc = position_btc.difference.where(
+            (position_btc.rebalance | all_assets.isin(list(quote_assets))) & ~position_btc.excluded, 0)
+        increase = rebalance_btc[rebalance_btc > 0]
+        decrease = rebalance_btc[rebalance_btc < 0]
 
-        excluded = pd.Series(True, diff_value_btc.index)
-        excluded[diff_value_btc.index.isin(signals.quote_asset) | diff_value_btc.index.isin(signals.base_asset)] = False
-        excluded[diff_value_btc.index.isin(excluded_assets)] = True
-
-        diff_value_btc['excluded'] = excluded
-
-        diff_value = diff_value_btc.copy()
-        diff_value = diff_value.div(asset_price_in_btc, axis=0)
-        diff_value.rebalance = diff_value.rebalance != 0
-        diff_value.excluded = diff_value.excluded != 0
-
-        # calculate transactions
-
-        rebalance_value_btc = diff_value_btc.rebalance * diff_value_btc.difference * (~diff_value_btc.excluded)
-        increase_asset_amount = rebalance_value_btc[rebalance_value_btc > 0]
-        decrease_asset_amount = rebalance_value_btc[rebalance_value_btc < 0]
-
-        diff_value_btc['rebalance'] = diff_value_btc['difference'].abs() > diff_value_btc['rebalance_threshold']
-        diff_value['rebalance'] = diff_value_btc.rebalance
-
-        txn_btc = {}
-
-        for nai, ai in increase_asset_amount.items():
-            for nad, ad in decrease_asset_amount.items():
-
-                symbol = nad + nai
-                amount = min(-ad, ai)
-
-                is_valid = self.ticker_info._list_select(self.ticker_info.tickers, 'symbol',
-                                                         symbol) is not None and nai in quote_asset_list
-
-                if is_valid:
-                    increase_asset_amount.loc[nai] -= amount
-                    decrease_asset_amount.loc[nad] += amount
-                    txn_btc[symbol] = -amount
+        pair_orders_btc = {}
+        for buy_asset, buy_value in increase.items():
+            for sell_asset, sell_value in decrease.items():
+                value = min(-sell_value, buy_value)
+                if info.has_symbol(sell_asset + buy_asset) and buy_asset in quote_assets:
+                    symbol, signed_value = sell_asset + buy_asset, -value
+                elif info.has_symbol(buy_asset + sell_asset) and sell_asset in quote_assets:
+                    symbol, signed_value = buy_asset + sell_asset, value
+                else:
                     continue
+                increase.loc[buy_asset] -= value
+                decrease.loc[sell_asset] += value
+                pair_orders_btc[symbol] = signed_value
 
-                symbol = nai + nad
-                is_valid = self.ticker_info._list_select(self.ticker_info.tickers, 'symbol',
-                                                         symbol) is not None and nad in quote_asset_list
+        stable_orders_btc = pd.concat([increase, decrease])
+        stable_orders_btc.index = stable_orders_btc.index + self.default_stable_coin
+        stable_orders_btc = stable_orders_btc.drop(self.default_stable_coin * 2, errors='ignore')
+        orders = pd.concat([stable_orders_btc, pd.Series(pair_orders_btc, dtype=float)]).to_frame('value_in_btc')
 
-                if is_valid:
-                    increase_asset_amount.loc[nai] -= amount
-                    decrease_asset_amount.loc[nad] += amount
-                    txn_btc[symbol] = amount
-                    continue
+        orders['base_asset'] = orders.index.map(info.get_base_asset)
+        orders['quote_asset'] = orders.index.map(info.get_quote_asset)
+        orders['value'] = orders.value_in_btc / orders.base_asset.map(info.get_asset_price_in_btc)
+        orders['price'] = orders.index.map(info.get_price)
+        orders = orders.groupby(level=0).agg(
+            {'value_in_btc': 'sum', 'value': 'sum', 'base_asset': 'first', 'quote_asset': 'first', 'price': 'first'})
+        orders = orders[orders.value != 0]
+        self._verify_orders(orders, position_btc, all_assets)
 
-        # assumption: self.default_stable_coin can be the quote asset for all alt-coins        
-        transaction_btc = pd.concat([increase_asset_amount, decrease_asset_amount])
-        transaction_btc.index = transaction_btc.index + self.default_stable_coin
+        is_quote_asset_order = orders.base_asset.isin(list(quote_assets))
+        below_threshold = orders.value_in_btc.abs() < position_btc.rebalance_threshold.reindex(orders.base_asset).values
+        orders = orders[~(is_quote_asset_order & below_threshold)]
 
-        if self.default_stable_coin in transaction_btc.index:
-            transaction_btc.pop(self.default_stable_coin+self.default_stable_coin)
-        
-        transaction_btc = pd.concat([transaction_btc, pd.Series(txn_btc)])
+        position = position_btc.copy()
+        position[position.columns[:-2]] = position_btc.iloc[:, :-2].div(price_in_btc, axis=0)
+        return position, position_btc, self._apply_exchange_filters(orders)
 
-        transaction = transaction_btc.to_frame(name='value_in_btc')
+    def _verify_orders(self, orders, position_btc, all_assets):
+        """Orders must move every asset by exactly its difference."""
+        moved = (orders.value_in_btc.groupby(orders.base_asset).sum().reindex(all_assets, fill_value=0)
+                 - orders.value_in_btc.groupby(orders.quote_asset).sum().reindex(all_assets, fill_value=0))
+        moved = moved[moved != 0].drop(self.default_stable_coin, errors='ignore')
+        mismatch = (moved / position_btc.difference.reindex(moved.index) - 1).abs() >= TRANSACTION_TOLERANCE
+        if mismatch.any():
+            raise RuntimeError(f'Orders do not match the target position:\n{orders}\n{position_btc}')
 
-        transaction['base_asset'] = transaction.index.map(self.ticker_info.get_base_asset)
-        transaction['quote_asset'] = transaction.index.map(self.ticker_info.get_quote_asset)
-        transaction['value'] = transaction['value_in_btc'] / transaction.base_asset.map(
-            self.ticker_info.get_asset_price_in_btc)
-        transaction['price'] = transaction.index.map(
-            lambda s: self.ticker_info._list_select(self.ticker_info.tickers, 'symbol', s)['price'])
-        transaction = transaction.groupby(level=0).agg(
-            dict(value_in_btc='sum', value='sum', base_asset='first', quote_asset='first', price='first'))
-        transaction = transaction[transaction.value != 0]
+    def _apply_exchange_filters(self, orders):
+        """Round to the step size and drop orders below Binance's minimums."""
+        if orders.empty:
+            return orders.assign(final_value=pd.Series(dtype=float), final_value_in_btc=pd.Series(dtype=float))
 
-        # check difference after transaction
-        def asset_distributed(v):
-            asset_increase = v.value_in_btc.groupby(v.base_asset).sum()
-            asset_decrease = v.value_in_btc.groupby(v.quote_asset).sum()
-            return asset_increase.reindex(all_assets).fillna(0) - asset_decrease.reindex(all_assets).fillna(0)
+        filters = pd.DataFrame({symbol: self.ticker_info.get_filters(symbol) for symbol in orders.index}).T
+        quantity = ((orders.value / filters.step_size).astype(int) * filters.step_size).round(STEP_SIZE_DECIMALS)
+        quantity[quantity.abs() < filters.min_lot_size] = 0
+        quantity[quantity.abs() * orders.price < filters.min_notional] = 0
 
-        verify_assets = asset_distributed(transaction)
-        verify_assets = verify_assets[verify_assets != 0]
-        verify = (verify_assets / diff_value_btc.difference.reindex(verify_assets.index) - 1).abs() < 0.001
-
-        try:
-            assert verify[verify.index != self.default_stable_coin].all()
-        except:
-            print(diff_value_btc)
-            print(transaction)
-            print(verify_assets)
-            print(verify)
-            raise Exception("validation fail")
-
-        # filter out orders where base asset is in quote asset list (ex: btcusdt)
-        # assumption: base asset should only be paired by one quote asset
-        transaction = transaction[~(transaction.base_asset.isin(quote_asset_list) & (
-                    transaction.value_in_btc.abs() < diff_value_btc.loc[
-                transaction['base_asset']].rebalance_threshold.values))]
-
-        # verify diff_value
-        def get_filters(exinfo, symbol):
-            filters = self.ticker_info._list_select(self.ticker_info.exinfo['symbols'], 'symbol', symbol)['filters']
-            min_lot_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['minQty']
-            step_size = self.ticker_info._list_select(filters, 'filterType', 'LOT_SIZE')['stepSize']
-            # Binance API may not return a value for the "min_notional" field for certain symbols in the filter section.
-            min_notional = self.ticker_info._list_select(filters, 'filterType', 'MIN_NOTIONAL')
-            notional = self.ticker_info._list_select(filters, 'filterType', 'NOTIONAL')
-
-            min_notional = min_notional['minNotional'] if min_notional else notional['minNotional'] if notional else 10.0
-
-            return {
-                'min_lot_size': min_lot_size,
-                'step_size': step_size,
-                'min_notional': min_notional,
-            }
-
-        filters = pd.DataFrame(
-            {s: get_filters(self.ticker_info.exinfo, s) for s in transaction.index}).transpose().astype(float)
-
-        if len(transaction) != 0:
-            min_notional = filters.min_notional
-            minimum_lot_size = filters.min_lot_size
-            step_size = filters.step_size
-
-            # rebalance filter:
-            diff = transaction['value']
-
-            # step size filter
-            diff = round((diff / step_size).astype(int) * step_size, 9)
-
-            # minimum lot filter
-            diff[diff.abs() < minimum_lot_size] = 0
-
-            # minimum notional filter
-            diff[diff.abs() * transaction.price.astype(float) < min_notional] = 0
-
-            transaction['final_value'] = diff
-            transaction['final_value_in_btc'] = diff * transaction.base_asset.map(
-                self.ticker_info.get_asset_price_in_btc)
-        else:
-            transaction = pd.DataFrame(None, columns=['final_value'])
-
-        transaction = transaction[transaction['final_value'] != 0]
-
-        return diff_value, diff_value_btc, transaction
+        orders = orders.assign(
+            final_value=quantity,
+            final_value_in_btc=quantity * orders.base_asset.map(self.ticker_info.get_asset_price_in_btc))
+        return orders[orders.final_value != 0]
 
     def execute_orders(self, transactions, mode='TEST'):
-        """Execute orders to Binance.
-
-        Execute orders by program order.
+        """Send orders to Binance.
 
         Args:
-          transactions: A dataframe which is generated by transaction in calculate_position_size() function result.
-          mode: A str of transactions mode, we have 3 method.
-              'TEST' is simulation.
-              'MARKET' is market order which is transaction at the current latest price.
-              'LIMIT' is The transaction is done at the specified price. If the specified price is not touched,
-                      the transaction has not been completed.
+          transactions: ``orders`` from ``calculate_position_size()``.
+          mode: 'TEST' validates orders without trading (only prints them in
+            a dry run), 'MARKET' trades at market price, 'LIMIT' places limit
+            orders at the latest price.
 
         Returns:
-            A dataframe of trades.
+          pd.DataFrame: One row per order with its result.
         """
-        def cancel_orders(symbol):
-            orders = self._client.get_open_orders(symbol=symbol)
-            for o in orders:
-                self._client.cancel_order(symbol=symbol, orderId=o['orderId'])
-
-        order_func = self._client.create_order if mode == 'MARKET' or mode == 'LIMIT' else self._client.create_test_order
+        if mode not in ORDER_MODES:
+            raise ValueError(f'mode should be one of {ORDER_MODES}')
+        if self.is_dry_run and mode != 'TEST':
+            raise RuntimeError(f'{mode} orders need a Binance API key; without one only mode="TEST" is available')
 
         print('|---------EXECUTION LOG----------|')
-        print('| time: ', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        print('| time:', pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+              '(dry run, nothing sent)' if self.is_dry_run else '')
 
         trades = {}
-        for s, lot in transactions.final_value.items():
+        for symbol, lot in transactions.final_value.items():
+            order = {'side': 'BUY' if lot > 0 else 'SELL', 'type': 'MARKET', 'symbol': symbol,
+                     'quantity': abs(lot)}
+            if mode == 'LIMIT':
+                order.update(type='LIMIT', price=transactions.price.loc[symbol], timeInForce='GTC')
+            trades[symbol] = {**order, 'result': self._send(order, mode)}
+            print('|', mode, symbol, order['side'], order['quantity'], trades[symbol]['result'])
+        return pd.DataFrame(trades).T
 
-            cancel_orders(s)
-
-            if lot == 0:
-                continue
-
-            side = SIDE_BUY if lot > 0 else SIDE_SELL
-            try:
-                args = dict(
-                    side=side,
-                    type=ORDER_TYPE_MARKET,
-                    symbol=s,
-                    quantity=abs(lot))
-
-                if mode == 'LIMIT':
-                    args['price'] = transactions.price.loc[s]
-                    args['type'] = ORDER_TYPE_LIMIT
-                    args['timeInForce'] = 'GTC'
-
-                order_func(**args)
-                order_result = 'success'
-                print('|', mode, s, side, abs(lot), order_result)
-            except Exception as e:
-                print('| FAIL', s, s, side, abs(lot), str(e))
-                order_result = 'FAIL: ' + str(e)
-
-            trades[s] = {
-                **args,
-                'result': order_result,
-            }
-
-        return pd.DataFrame(trades).transpose()
+    def _send(self, order, mode):
+        if self.is_dry_run:
+            return 'dry run'
+        for open_order in self._client.get_open_orders(symbol=order['symbol']):
+            self._client.cancel_order(symbol=order['symbol'], orderId=open_order['orderId'])
+        send = self._client.create_test_order if mode == 'TEST' else self._client.create_order
+        try:
+            send(**order)
+        except Exception as error:  # report every rejected order instead of stopping the batch
+            return f'FAIL: {error}'
+        return 'success'
 
     def status(self, ohlcvs):
-        """Strategy list widgets.
-
-        Choose which strategy to implement on widgets GUI.
-
-        Args:
-          ohlcvs: A dataframe of symbol.
-
-        Returns:
-            widget GUI
-        """
+        """Show every strategy's equity and signal; returns a widget to inspect one of them."""
         import ipywidgets as widgets
 
-        ret = pd.DataFrame()
-        full_results = []
-        for method in self._trading_methods:
-            for symbol in method.symbols:
-                ohlcv = ohlcvs[(symbol, method.freq)]
-                result = method.strategy.backtest(ohlcv,
-                                                  method.variables, filters=method.filters, freq=method.freq)
-                ret[method.name + '-' + symbol + '-' + method.freq] = result.cumulative_returns
+        results = self._results(ohlcvs)
+        equity = pd.DataFrame({f'{r.name}-{r.symbol}-{r.freq}': r.portfolio.cumulative_returns()
+                               for r in results.itertuples()})
+        (equity + 1).plot(logy=True, figsize=(15, 5), title='Cumulative returns')
+        plt.show()
+        display(results.drop(columns=['portfolio', 'trading_method']))
 
-                weight_btc = method.weight_btc
-                if isinstance(weight_btc, dict):
-                    weight_btc = (weight_btc[symbol]
-                        if symbol in weight_btc else weight_btc['default'])
-
-                full_results.append({
-                    'name': method.name,
-                    'symbol': symbol,
-                    'freq': method.freq,
-                    'weight': weight_btc,
-                    'portfolio': result,
-                    'trading_method': method,
-                    'signal': result.cash().iloc[-1] == 0,
-                })
-
-        method_dropdown = widgets.Dropdown(options=[m.name + '-' + str(i) for i, m in enumerate(self._trading_methods)])
-        symbol_dropdown = widgets.Dropdown(options=[symbol + '-' + freq for symbol, freq in ohlcvs.keys()])
-        backtest_btn = widgets.Button(description='status')
-
+        method_dropdown = widgets.Dropdown(options=[(m.name, m) for m in self._trading_methods])
+        symbol_dropdown = widgets.Dropdown(options=[(f'{s}-{f}', (s, f)) for s, f in ohlcvs])
+        backtest_button = widgets.Button(description='backtest')
         backtest_panel = widgets.Output()
-        option_panel = widgets.Output()
-
-        def plotly_df(df):
-            """Display plot.
-            """
-            # Plot
-            fig = px.line()
-            for sname, s in df.items():
-                fig.add_scatter(x=s.index, y=s.values, name=sname)  # Not what is desired - need a line
-            # fig.show()
 
         @backtest_panel.capture(clear_output=True)
         def backtest(_):
-            """Display single strategy backtest result.
-            """
-            method_id = int(method_dropdown.value.split('-')[-1])
-            history_id = tuple(symbol_dropdown.value.split('-'))
-            ohlcv = ohlcvs[history_id]
-            strategy = self._trading_methods[method_id].strategy
-            svars = self._trading_methods[method_id].variables
-            filters = self._trading_methods[method_id].filters
-            strategy.backtest(ohlcv, variables=svars, filters=filters, freq=history_id[-1], plot=True)
+            method = method_dropdown.value
+            symbol, freq = symbol_dropdown.value
+            method.strategy.backtest(ohlcvs[(symbol, freq)], variables=method.variables, filters=method.filters,
+                                     freq=freq, plot=True)
 
-        backtest_btn.on_click(backtest)
-        dropdowns = widgets.HBox([method_dropdown, symbol_dropdown, backtest_btn])
-        with option_panel:
-            plotly_df(ret)
-            display(pd.DataFrame(full_results))
+        backtest_button.on_click(backtest)
+        return widgets.VBox([widgets.HBox([method_dropdown, symbol_dropdown, backtest_button]), backtest_panel])
 
-        return widgets.VBox([option_panel, dropdowns, backtest_panel])
-
-    def portfolio_backtest(self, ohlcvs, min_freq, quote_assets=['BTC', 'USDT', 'BUSD', 'USDC'], fee=0.002, delay=0):
-        """Display portfolio backtest result.
-
-        Calculate overall account asset changes.
-        Unit is USD
+    def portfolio_backtest(self, ohlcvs, min_freq, fee=0.002, delay=0):
+        """Backtest the whole account in USDT, with every method's position size.
 
         Args:
-          ohlcvs: A dataframe of symbel.
-          min_freq: A str of calculation frequency ex('4h').
-          quote_assets: A list of assets name ex(['BTC', 'USDT', 'BUSD', 'ETH']).
-          fee: A float of trading fee.
-          delay: A int of delayed entry and exit setting.
+          ohlcvs: Output of ``get_full_ohlcvs()``.
+          min_freq: Rebalance frequency, ex: '4h'.
+          fee: Cost per unit of turnover.
+          delay: Delay signals by this many bars.
+
         Returns:
-            widget GUI
+          pd.DataFrame: The backtest of every (method, symbol).
         """
-        # backtest_results
-        results = []
-        for method in self._trading_methods:
-            for symbol in method.symbols:
-                ohlcv = ohlcvs[(symbol, method.freq)]
-                result = method.strategy.backtest(ohlcv,
-                                                  method.variables, filters=method.filters, freq=method.freq)
-                # find weight_btc if it is in the nested dictionary
-                weight_btc = method.weight
-                if isinstance(weight_btc, dict):
-                    weight_btc = (weight_btc[symbol]
-                        if symbol in method.weight else weight_btc['default'])
+        info = self.ticker_info
+        results = self._results(ohlcvs)
 
-                weight_btc *= self.ticker_info.get_asset_price_in_btc(method.weight_unit)
+        holdings = {}
+        for r in results.itertuples():
+            weight_btc = r.weight * info.get_asset_price_in_btc(r.trading_method.weight_unit)
+            in_market = (r.portfolio.cash() == 0).shift(delay, fill_value=False).astype(float)
+            holdings[(r.symbol, r.Index)] = in_market * weight_btc
+        holdings = pd.DataFrame(holdings).resample(min_freq).last().ffill().fillna(0)
+        symbols = holdings.columns.get_level_values(0)
 
-                results.append({
-                    'name': method.name,
-                    'symbol': symbol,
-                    'freq': method.freq,
-                    'weight': weight_btc,
-                    'portfolio': result,
-                    'trading_method': method,
-                    'signal': result.cash().iloc[-1] == 0,
-                })
+        def by_asset(frame, assets):
+            return frame.T.groupby(list(assets)).sum().T
 
-        results = pd.DataFrame(results)
+        base_position = by_asset(holdings, symbols.map(info.get_base_asset))
+        quote_position = -by_asset(holdings, symbols.map(info.get_quote_asset))
+        assets = base_position.columns.union(quote_position.columns).union(list(self._margins)).union(['USDT'])
+        position = base_position.reindex(columns=assets, fill_value=0) + quote_position.reindex(columns=assets,
+                                                                                                 fill_value=0)
 
-        import matplotlib.pyplot as plt
-        position = {}
-        quote_substract = {}
-        for index, value in results.transpose().items():
-            position[value.loc['name'] + '|' + value.symbol + '|' + value.freq] = (value.portfolio.cash() == 0).shift(
-                delay).ffill() * value.weight
-        position = pd.DataFrame(position).resample(min_freq).last().ffill()
-        position.columns = position.columns.str.split('|').str[1]
-        position = position.ffill().fillna(0)
-        position = position.groupby(position.columns, axis=1).sum()
+        initial_margin_btc = 0
+        for asset, amount in self._margins.items():
+            position[asset] += info.get_asset_price_in_btc(asset) * amount
+            initial_margin_btc += info.get_asset_price_in_btc(asset) * amount
 
-        # find quote assets
-        quote_asset_col = []
-        for symbol in position.columns:
-            for q in quote_assets:
-                if symbol[-len(q):] == q:
-                    quote_asset_col.append(q)
-                    break
-
-        quote_position = position.copy()
-        quote_position.columns = quote_asset_col
-        quote_position = -quote_position.groupby(quote_position.columns, axis=1).sum()
-
-        # calculate return in usdt
-        assets = position.columns.str.split('|').str[0].to_list()
-
-        for i, a in enumerate(assets):
-            for q in quote_assets:
-                if len(a) > 5 and a[-len(q):] == q:
-                    assets[i] = a[:-len(q)]
-
-        position.columns = assets
-        position = position.groupby(position.columns, axis=1).sum()
-        quote_position = quote_position.groupby(quote_position.columns, axis=1).sum()
-
-        all_symbols = list(set(quote_position.columns) | set(position.columns) | set(self._margins.keys()))
-        if 'USDT' not in all_symbols:
-            all_symbols.append('USDT')
-
-        position = position.reindex(all_symbols, axis=1).fillna(0) + quote_position.reindex(all_symbols, axis=1).fillna(
-            0)
-
-        ohlcv_usdt = {a: get_all_binance(a + 'USDT', min_freq) for a in position.columns if a != 'USDT'}
-
-        initial_margin_sum_btc = 0
-        for a, w in self._margins.items():
-            position[a] += self.ticker_info.get_asset_price_in_btc(a) * w
-            initial_margin_sum_btc += self.ticker_info.get_asset_price_in_btc(a) * w
-
-        # remove negative position
-        negative_position = ((position < 0) * position).drop('USDT', axis=1, errors='ignore').sum(axis=1)
-        pusdt = position['USDT'].copy()
+        shortfall = position.drop(columns='USDT').clip(None, 0).sum(axis=1)
+        usdt = position.USDT + shortfall
         position = position.clip(0, None)
-        position.USDT = pusdt + negative_position
+        position['USDT'] = usdt
+        usdt_in_btc = info.get_asset_price_in_btc('USDT')
+        extra_usdt = -min(position.USDT.min(), 0) / usdt_in_btc
+        if extra_usdt > 0:
+            print('WARNING: additional USDT is required:', extra_usdt, 'USD')
 
-        addition_usdt = -min(position.USDT.min(), 0) / self.ticker_info.get_asset_price_in_btc('USDT')
+        changes = position.index[(position != position.shift()).any(axis=1)].union(position.index[-1:])
+        position = position.loc[changes]
+        position.index = position.index.tz_localize(None)
 
-        if addition_usdt > 0:
-            print('WARRN**: additional usdt is required: ', addition_usdt, ' USD')
+        close = pd.DataFrame({asset: get_all_binance(asset + 'USDT', min_freq).close
+                              for asset in position.columns if asset != 'USDT'})
+        close.index = close.index.tz_localize(None)
+        rebalance_times = position.index.intersection(close.index)
+        close = close.loc[rebalance_times]
+        position = position.loc[rebalance_times]
 
-        p = position.loc[position.index[(position != position.shift()).abs().sum(axis=1) != 0].union(position.index[-1:])]
-        p.index = p.index.tz_localize(None)
+        asset_return = (close.pct_change().shift(-1).fillna(0) * position
+                        - fee * (position - position.shift()).abs()).fillna(0)
 
-        ohlcv_usdt_close = pd.DataFrame({name: s.close for name, s in ohlcv_usdt.items()})
-        ohlcv_usdt_close.index = ohlcv_usdt_close.index.tz_localize(None)
-
-        rebalance_time = (p.index.intersection(ohlcv_usdt_close.index))
-
-        ohlcv_usdt_close = ohlcv_usdt_close.loc[rebalance_time]
-        p = p.loc[rebalance_time].fillna(0)
-
-        asset_return = ((ohlcv_usdt_close.pct_change().shift(-1).fillna(0)) * p) - fee * (p - p.shift()).abs()
-        asset_return.fillna(0, inplace=True)
-
-        (asset_return.cumsum() / self.ticker_info.get_asset_price_in_btc('USDT')).plot()
+        (asset_return.cumsum() / usdt_in_btc).plot(figsize=(15, 4), title='Profit by asset (USDT)')
         plt.show()
-
-        s = (asset_return.sum(axis=1).cumsum() + initial_margin_sum_btc) / self.ticker_info.get_asset_price_in_btc(
-            'USDT')
-        s.plot()
-
+        equity = (asset_return.sum(axis=1).cumsum() + initial_margin_btc) / usdt_in_btc
+        equity.plot(figsize=(15, 4), title='Account value (USDT)')
         plt.show()
-
-        (s / s.cummax()).plot()
+        (equity / equity.cummax() - 1).plot(figsize=(15, 3), title='Drawdown')
         plt.show()
-
         return results
 
 
 def render_html(signals, position, position_btc, orders, order_results):
-    """Render html to google cloud platform.
-
-    Integrate order data into tables that display in html.
-
-    Args:
-      signals_df: A dataframe of signals which are generated by TradingPortfolio().get_latest_signals().
-      rebalance_df: A dataframe of diff_value which are generated by TradingPortfolio().calculate_position_size().
-      rebalance_df_in_btc: A dataframe of diff_value_btc which are generated by TradingPortfolio().calculate_position_size().
-      orders: A dataframe of transaction which are generated by TradingPortfolio().calculate_position_size().
-      order_results: A dataframe of execute_orders which are generated by TradingPortfolio().execute_orders().
-
-    Returns:
-        html
-    """
-    html = """
-    <!DOCTYPE html>
-    <head>
-      <title>Saying Hello</title>
-      <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.3/build/pure-min.css" integrity="sha384-cg6SkqEOCV1NbJoCu11+bm0NvBRc8IYLRGXkmNrqUBfTjmMYwNKPWBTIKyw9mHNJ" crossorigin="anonymous">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    </head>
-    <body style="padding: 5vw">
-    """
-
-    html += '<h1>Crypto Portfolio</h1>'
-    html += '<h2>Strategy signals</h2>'
-    html += signals.to_html(classes="pure-table pure-table-horizontal")
-    html += '<h2>Position</h2>'
-    html += position.to_html(classes="pure-table pure-table-horizontal")
-    html += '<h2>Position in BTC</h2>'
-    html += position_btc.to_html(classes="pure-table pure-table-horizontal")
-    html += '<h2>Orders</h2>'
-
-    if len(orders) > 0:
-        orders['result'] = order_results['result']
-        html += orders.to_html(classes="pure-table pure-table-horizontal")
+    """HTML report of one rebalance, used as the Cloud Function response."""
+    tables = [('Strategy signals', signals), ('Position', position), ('Position in BTC', position_btc)]
+    body = ''.join(f'<h2>{title}</h2>{table.to_html(classes="pure-table pure-table-horizontal")}'
+                   for title, table in tables)
+    if len(orders):
+        orders_table = orders.assign(result=order_results['result'])
+        body += f'<h2>Orders</h2>{orders_table.to_html(classes="pure-table pure-table-horizontal")}'
     else:
-        html += '<p>None</p>'
+        body += '<h2>Orders</h2><p>None</p>'
 
-    html += '<br>'
-    html += '<button onclick="update_position(\'MARKET\')">place market orders</button>'
-    html += '<button onclick="update_position(\'LIMIT\')">place limit orders</button>'
-    html += '</body>'
-
-    html += """
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <title>Crypto Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
+</head>
+<body style="padding: 5vw">
+  <h1>Crypto Portfolio</h1>
+  {body}
+  <br>
+  <button onclick="updatePosition('MARKET')">place market orders</button>
+  <button onclick="updatePosition('LIMIT')">place limit orders</button>
   <script>
-  function update_position(mode) {
-    // Redirect to next page
-    var next_page = window.location.href.split("?")[0] + "?mode=" + mode
-    window.location = next_page;
-  }
+    function updatePosition(mode) {{
+      window.location = window.location.href.split('?')[0] + '?mode=' + mode;
+    }}
   </script>
-  """
-    return html
+</body>
+</html>"""

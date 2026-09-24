@@ -1,56 +1,35 @@
-from finlab_crypto.strategy import Strategy, Filter
+"""Build a filter from one TA-Lib indicator."""
 import inspect
-import pandas as pd
-import numpy as np
 
-def TalibFilter(talib_function_name, condition=None, **additional_parameters):
-    """A filter factory that makes filter using talib indicator.
+from finlab_crypto._talib import TalibIndicator
+from finlab_crypto.strategy import Filter
+
+
+def TalibFilter(talib_function_name, condition, **additional_parameters):
+    """Filter whose condition comes from a TA-Lib indicator.
 
     Args:
-      talib_function_name:
-        A str of technical indicator function name in talib mudule.
-      condition:
-        A function that transfer indicators to bool signals (ex: lambda ohlcv, ma: ohlcv.close > ma)
-      **additional_parameters:
-        other parameters for parameter optimization.
+      talib_function_name: TA-Lib function name, ex: 'LINEARREG_ANGLE'.
+      condition: ``(ohlcv, indicator) -> bool Series``, or
+        ``(ohlcv, indicator, params) -> bool Series`` to use
+        ``additional_parameters``.
+      **additional_parameters: Extra optimisable parameters passed to
+        ``condition`` as ``params``, ex: ``threshold=0``.
 
     Returns:
-      signals:
-        A dataframe of filter signals.
-      figures:
-        A dict of required data for figure display.
+      Filter: its parameters are the indicator's plus ``additional_parameters``.
     """
-    from talib import abstract
-    import talib
-    f = getattr(abstract, talib_function_name)
-    ff = getattr(talib, talib_function_name)
+    indicator = TalibIndicator(talib_function_name)
+    uses_parameters = len(inspect.signature(condition).parameters) > 2
 
-    @Filter(condition=condition, **f.parameters, additional_parameters=additional_parameters)
-    def ret(ohlcv):
-        parameters = {pn: (getattr(ret, pn)) for pn, val in f.parameters.items()}
-        try:
-            o = f(ohlcv, **parameters)
-        except:
-            o = ff(ohlcv.close, **parameters)
-            if isinstance(o, list) or isinstance(o, tuple):
-                o = pd.DataFrame(np.array(o).T, index=ohlcv.index, columns=f.output_names)
-
-        if isinstance(o, np.ndarray):
-            o = pd.Series(o, index=ohlcv.index)
-
-        if len(inspect.getargspec(ret.condition)[0]) == 2:
-            signals = ret.condition(ohlcv, o)
+    @Filter(condition=condition, **indicator.parameters, **additional_parameters)
+    def talib_filter(ohlcv):
+        output = indicator(ohlcv, {name: getattr(talib_filter, name) for name in indicator.parameters})
+        if uses_parameters:
+            extra = {name: getattr(talib_filter, name) for name in additional_parameters}
+            signals = talib_filter.condition(ohlcv, output, extra)
         else:
-          try:
-            parameters = ({pn: (getattr(ret, pn)) for pn, val in additional_parameters.items()})            
-          except:
-            parameters = additional_parameters
-                       
-          signals = ret.condition(ohlcv, o, parameters)
+            signals = talib_filter.condition(ohlcv, output)
+        return signals, indicator.figures(output)
 
-        figures = {}
-        group = 'overlaps' if f.info['group'] == 'Overlap Studies' else 'figures'
-        figures[group] = {f.info['name']: o}
-
-        return signals, figures
-    return ret
+    return talib_filter

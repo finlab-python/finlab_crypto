@@ -1,334 +1,231 @@
-from IPython.display import display, HTML, IFrame, clear_output
-from itertools import compress, product
-from collections.abc import Iterable
-import matplotlib.pyplot as plt
-import tqdm.notebook as tqdm
+"""Parameter enumeration, stop exits and backtest visualisation."""
+from collections.abc import Hashable, Iterable
+from html import escape
+from itertools import product
+
 import ipywidgets as widgets
-import vectorbt as vbt
-import seaborn as sns
-import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
-import copy
-import os
+import pandas as pd
+import seaborn as sns
+import tqdm.auto as tqdm
+import vectorbt as vbt
+from IPython.display import HTML, display
 
-from . import chart
-from . import overfitting
+from finlab_crypto import chart, overfitting
+
+STOP_VARIABLES = ('sl_stop', 'ts_stop', 'tp_stop', 'sl_trail')
+STOP_LEVEL_PREFIX = 'stop'
+CHART_BARS = 1000
+CHART_FRAME_PADDING_PX = 40
+TOP_N_CURVES = 10
+DRAWDOWN_TOP_NS = (5, 10, 20, 30)
+PARAMETER_METRICS = ('final_value', 'sharpe_ratio', 'sortino_ratio')
+DASHBOARD_METRICS = ('final_value', 'calmar_ratio', 'max_drawdown', 'sharpe_ratio',
+                     'downside_risk', 'omega_ratio', 'cond_value_at_risk')
 
 
-def is_evalable(obj):
-    try:
-        eval(str(obj))
-        return True
-    except:
-        return False
+def _is_grid(value):
+    return isinstance(value, Iterable) and not isinstance(value, (str, pd.Series, pd.DataFrame))
 
-def remove_pd_object(d):
-    ret = {}
-    for n, v in d.items():
-        if ((not isinstance(v, pd.Series) and not isinstance(v, pd.DataFrame) and not callable(v) and is_evalable(v))
-            or isinstance(v, str)):
-            ret[n] = v
-    return ret
+
+def _is_label(value):
+    return isinstance(value, Hashable) and not callable(value) and not isinstance(value, (pd.Series, pd.DataFrame))
+
+
+def _native(value):
+    """numpy scalars (from np.arange) as plain Python numbers, which TA-Lib requires."""
+    return value.item() if isinstance(value, np.generic) else value
+
 
 def enumerate_variables(variables):
-
+    """Expand ``{'n1': [10, 20], 'n2': 30}`` into one dict per combination."""
     if not variables:
         return []
-
-    enumeration_name = []
-    enumeration_vars = []
-
-    constant_d = {}
-
-    for name, v in variables.items():
-        if (isinstance(v, Iterable) and not isinstance(v, str)
-            and not isinstance(v, pd.Series)
-            and not isinstance(v, pd.DataFrame)):
-
-            enumeration_name.append(name)
-            enumeration_vars.append(v)
-        else:
-            constant_d[name] = v
-
-    variable_enumerations = [dict(**dict(zip(enumeration_name, ps)), **constant_d)
-                             for ps in list(product(*enumeration_vars))]
-
-    return variable_enumerations
+    grid = {name: [_native(v) for v in value] for name, value in variables.items() if _is_grid(value)}
+    constants = {name: _native(value) for name, value in variables.items() if not _is_grid(value)}
+    return [{**dict(zip(grid, values)), **constants} for values in product(*grid.values())]
 
 
+def label_parameters(variables):
+    """Parameters that can name a result column (drops Series and callables)."""
+    return {name: value for name, value in variables.items() if _is_label(value)}
 
-def enumerate_signal(ohlcv, strategy, variables, ):
-    entries = {}
-    exits = {}
 
-    fig = {}
+def signals_frame(signals, labels):
+    """Stack signal Series into a DataFrame whose columns are the parameters."""
+    frame = pd.concat(signals, axis=1)
+    names = list(labels[0])
+    if names:
+        frame.columns = pd.MultiIndex.from_tuples([tuple(label.values()) for label in labels], names=names)
+    return frame
 
+
+def enumerate_signal(ohlcv, strategy, variables):
+    """Run ``strategy`` once per parameter set.
+
+    Returns:
+      (entries, exits, figures): entries and exits have one column per
+      parameter set; figures come from the last run.
+    """
+    entries, exits, labels = [], [], []
+    figures = {}
     iteration = tqdm.tqdm(variables) if len(variables) > 1 else variables
-    for v in iteration:
-        strategy.set_parameters(v)
+    for variable in iteration:
+        strategy.set_parameters(variable)
         results = strategy.func(ohlcv)
+        entries.append(results[0])
+        exits.append(results[1])
+        labels.append(label_parameters(variable))
+        if len(results) > 2:
+            figures = results[2]
+    return signals_frame(entries, labels), signals_frame(exits, labels), figures
 
-        v = remove_pd_object(v)
 
-        entries[str(v)], exits[str(v)] = results[0], results[1]
-        if len(results) >= 3:
-            fig = results[2]
+def _stop_arguments(stop_vars):
+    """Translate course stop names into ``vbt.OHLCSTX`` arguments.
 
-    entries = pd.DataFrame(entries)
-    exits = pd.DataFrame(exits)
+    ``ts_stop`` (trailing stop) is a stop loss that follows the highest price,
+    which vectorbt expresses as ``sl_stop`` plus ``sl_trail=True``.
 
-    # setup columns
-    param_names = list(eval(entries.columns[0]).keys())
-    arrays = ([entries.columns.map(lambda s: eval(s)[p]) for p in param_names])
-    tuples = list(zip(*arrays))
-    if tuples:
-        columns = pd.MultiIndex.from_tuples(tuples, names=param_names)
-        exits.columns = columns
-        entries.columns = columns
-    return entries, exits, fig
+    Returns:
+      (arguments, level_names): OHLCSTX keyword arguments, and the course name
+      of each argument for labelling result columns.
+    """
+    unknown = set(stop_vars) - set(STOP_VARIABLES)
+    if unknown:
+        raise ValueError(f'{sorted(unknown)} are not stop variables: {STOP_VARIABLES}')
 
-def stop_early(ohlcv, entries, exits, stop_vars, enumeration=True):
+    arguments = dict(stop_vars)
+    level_names = {name: name for name in arguments}
+    if 'ts_stop' in arguments:
+        if 'sl_stop' in arguments:
+            raise ValueError('sl_stop and ts_stop cannot be combined; choose one of them')
+        arguments['sl_stop'] = arguments.pop('ts_stop')
+        arguments['sl_trail'] = True
+        level_names = {**level_names, 'sl_stop': 'ts_stop'}
+    return arguments, level_names
 
+
+def stop_early(ohlcv, entries, exits, stop_vars):
+    """Add stop-loss / take-profit / trailing-stop exits to the signals.
+
+    Every combination of the stop values is tested, e.g.
+    ``{'sl_stop': [0.05, 0.1], 'tp_stop': 0.2}`` yields two variants.
+    """
     if not stop_vars:
         return entries, exits
 
-    # check for stop_vars
-    length = -1
-    stop_vars_set = {'sl_stop', 'ts_stop', 'tp_stop', 'sl_trail'}
-    for s, slist in stop_vars.items():
-        if s not in stop_vars_set:
-            raise Exception(f'variable { s } is not one of the stop variables'
-                             ': sl_stop, ts_stop, or tp_stop')
-        if not isinstance(slist, Iterable):
-            stop_vars[s] = [slist]
+    combos = enumerate_variables(stop_vars)
+    arguments, level_names = _stop_arguments({name: [combo[name] for combo in combos] for name in combos[0]})
+    stops = vbt.OHLCSTX.run(entries, ohlcv['open'], ohlcv['high'], ohlcv['low'], ohlcv['close'],
+                            short_name=STOP_LEVEL_PREFIX, hide_params=['sl_trail'], **arguments)
 
-        if length == -1:
-            length = len(stop_vars[s])
+    stop_exits = stops.exits
+    stop_exits.columns = stop_exits.columns.set_names(
+        [level_names.get(str(name).removeprefix(f'{STOP_LEVEL_PREFIX}_'), name) for name in stop_exits.columns.names])
+    repeats = stop_exits.shape[1] // entries.shape[1]
+    entries = entries.vbt.tile(repeats)
+    exits = stop_exits.vbt | exits.vbt.tile(repeats).values
+    entries.columns = exits.columns
+    return entries, exits
 
-        if not enumeration and length != -1 and length != len(stop_vars[s]):
-            raise Exception(f'lengths of the variables are not align: '
-                    + str([len(stop_vars[s]) for s, slist in stop_vars.items()]))
 
-    if enumeration:
-        stop_vars = enumerate_variables(stop_vars)
-        stop_vars = {key: [stop_vars[i][key] for i in range(len(stop_vars))] for key in stop_vars[0].keys()}
-
-    # vbt patch: change ts_stop to sl_trail
-    if 'ts_stop' in stop_vars:
-        ts_stop = stop_vars.pop('ts_stop')
-        stop_vars['sl_trail'] = ts_stop
-
-    sl_advstex = vbt.OHLCSTX.run(
-        entries,
-        ohlcv['open'],
-        ohlcv['high'],
-        ohlcv['low'],
-        ohlcv['close'],
-        **stop_vars
-    )
-
-    stop_exits = sl_advstex.exits
-
-    nrepeat = int(len(stop_exits.columns) / len(entries.columns))
-    if isinstance(stop_exits, pd.DataFrame):
-        exits = exits.vbt.tile(nrepeat)
-        entries = entries.vbt.tile(nrepeat)
-
-    stop_exits = stop_exits.vbt | exits.values
-    entries.columns = stop_exits.columns
-
-    return entries, stop_exits
-
-def plot_strategy(ohlcv, entries, exits, portfolio ,fig_data, html=None, k_colors='world'):
-
-    # format trade data
-    txn = portfolio.positions.records
-    txn['enter_time'] = ohlcv.iloc[txn.entry_idx].index.values
-    txn['exit_time'] = ohlcv.iloc[txn.exit_idx].index.values
-
-    # plot trade data
-    mark_lines = []
-    for name, t in txn.iterrows():
-        x = [str(t.enter_time), str(t.exit_time)]
-        y = [t.entry_price, t.exit_price]
-        name = t.loc[['entry_price', 'exit_price', 'return']].to_string()
-        mark_lines.append((name, x, y))
-
-    # calculate overlap figures
-    overlaps = {}
-    if 'overlaps' in fig_data:
-        overlaps = fig_data['overlaps']
-
-    # calculate sub-figures
-    figures = {}
-    if 'figures' in fig_data:
-        figures = fig_data['figures']
-
-    figures['entries & exits'] = pd.DataFrame(
-        {'entries':entries.squeeze(), 'exits': exits.squeeze()})
-    figures['performance'] = portfolio.cumulative_returns()
-
-    c, info = chart.chart(ohlcv, overlaps=overlaps,
-                          figures=figures, markerlines=mark_lines,
-                          start_date=ohlcv.index[-min(1000, len(ohlcv))], end_date=ohlcv.index[-1], k_colors=k_colors)
-    c.load_javascript()
+def display_chart(grid_chart, height, html=None):
+    """Show a pyecharts chart inline (Colab, Jupyter, VS Code) and optionally save it."""
+    page = chart.to_html(grid_chart, height)
     if html is not None:
-        c.render(html)
+        with open(html, 'w', encoding='utf-8') as file:
+            file.write(page)
+    display(HTML(f'<div><iframe srcdoc="{escape(page)}" width="100%" height="{height + CHART_FRAME_PADDING_PX}" '
+                 'style="border:none"></iframe></div>'))
 
-    c.render('render.html')
 
-    from IPython.display import HTML, display
-    display(HTML('render.html'))
-        #display(HTML(filename='render.html'))
+def plot_strategy(ohlcv, entries, exits, portfolio, fig_data, html=None, k_colors='world'):
+    """Interactive candlestick chart with trades, indicators and equity."""
+    trades = portfolio.positions.records
+    entry_times = ohlcv.index[trades.entry_idx.to_numpy()]
+    exit_times = ohlcv.index[trades.exit_idx.to_numpy()]
+    mark_lines = [
+        (trade[['entry_price', 'exit_price', 'return']].to_string(), [entry_time, exit_time],
+         [trade.entry_price, trade.exit_price])
+        for (_, trade), entry_time, exit_time in zip(trades.iterrows(), entry_times, exit_times)
+    ]
 
-    return c
+    figures = {
+        **fig_data.get('figures', {}),
+        'entries & exits': pd.DataFrame({'entries': entries, 'exits': exits}),
+        'performance': portfolio.cumulative_returns(),
+    }
+    grid_chart, size = chart.chart(ohlcv, overlaps=fig_data.get('overlaps', {}), figures=figures,
+                                   markerlines=mark_lines,
+                                   start_date=ohlcv.index[-min(CHART_BARS, len(ohlcv))],
+                                   end_date=ohlcv.index[-1], k_colors=k_colors)
+    display_chart(grid_chart, size['height'], html)
+    return grid_chart
+
+
+def _parameter_sensitivity(portfolio, metric):
+    values = getattr(portfolio, metric)().replace([np.inf, -np.inf], np.nan)
+    names = values.index.names
+    results = {}
+    for name in names:
+        mean = values.groupby(level=name).mean()
+        if all(isinstance(value, str) for value in mean.index):
+            mean = mean.reset_index(drop=True)
+        results[name] = mean
+    return pd.DataFrame(results)
+
 
 def plot_combination(portfolio, cscv_result=None, metric='final_value'):
+    """Summary charts of a parameter optimisation."""
+    sns.set_theme(style='whitegrid')
 
-    sns.set()
-    sns.set_style("whitegrid")
-
-    fig, axes = plt.subplots(1, 2, figsize=(15, 4), sharey=False, sharex=False)
+    ranking = getattr(portfolio, metric)().sort_values()
+    fig, axes = plt.subplots(1, 2, figsize=(15, 4))
     fig.suptitle('Backtest Results')
-
-    def heat_map(item, name1, name2, ax):
-        if name1 != name2:
-            sns.heatmap(item.reset_index().pivot(name1, name2)[0], cmap='magma_r', ax=ax)
-        else:
-            getattr(portfolio, item_name).groupby(name1).mean().plot(ax=ax)
-
-    def best_n(portfolio, n):
-        return getattr(portfolio, metric)().sort_values().tail(n).index
-
-    best_10 = best_n(portfolio, 10)
-
-    ax = (portfolio.cumulative_returns()[best_10] * 100).plot(ax=axes[0])
+    ax = (portfolio.cumulative_returns()[ranking.index[-TOP_N_CURVES:]] * 100).plot(ax=axes[0])
     ax.set(xlabel='time', ylabel='cumulative return (%)')
 
-    axes[1].title.set_text('Drawdown (%)')
-    for n, c in zip([5, 10, 20, 30], sns.color_palette("GnBu_d")):
-        bests = best_n(portfolio, n)
-        drawdown = portfolio.drawdown()[bests].min(axis=1)
-        ax = drawdown.plot(linewidth=1, ax=axes[1])
-        # ax.fill_between(drawdown.index, 0, drawdown * 100, alpha=0.2, color=c)
-    ax.set(xlabel='time', ylabel='drawdown (%)')
-
+    axes[1].set_title('Drawdown (%)')
+    for n in DRAWDOWN_TOP_NS:
+        portfolio.drawdown()[ranking.index[-n:]].min(axis=1).plot(linewidth=1, ax=axes[1], label=f'top {n}')
+    axes[1].set(xlabel='time', ylabel='drawdown (%)')
+    axes[1].legend()
     plt.show()
 
-
-    items = ['final_value', 'sharpe_ratio', 'sortino_ratio']
-    fig, axes = plt.subplots(1, len(items), figsize=(15, 3),
-                             sharey=False, sharex=False, constrained_layout=False)
+    fig, axes = plt.subplots(1, len(PARAMETER_METRICS), figsize=(15, 3))
     fig.subplots_adjust(top=0.75)
     fig.suptitle('Partial Differentiation')
+    for ax, item in zip(axes, PARAMETER_METRICS):
+        ax.set_title(item)
+        _parameter_sensitivity(portfolio, item).plot(ax=ax)
+    plt.show()
 
-    final_value = portfolio.final_value()
-    if isinstance(final_value.index, pd.MultiIndex):
-        index_names = final_value.index.names
-    else:
-        index_names = [final_value.index.name]
-
-    for i, item in enumerate(items):
-        results = {}
-        for name in index_names:
-            s = getattr(portfolio, item)()
-            s = s.replace([np.inf, -np.inf], np.nan)
-            results[name] = s.groupby(name).mean()
-
-            if all(isinstance(idx, str) for idx in results[name].index):
-                results[name] = results[name].reset_index(drop=True)
-
-        results = pd.DataFrame(results)
-        axes[i].title.set_text(item)
-        results.plot(ax=axes[i])
-
-    if cscv_result is None:
-        return
-
-    results = cscv_result
-
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5),
-                             sharey=False, sharex=False, constrained_layout=False)
-    fig.subplots_adjust(bottom=0.5)
-    fig.suptitle('Combinatorially Symmetric Cross-validation')
-
-    pbo_test = round(results['pbo_test'] * 100, 2)
-    axes[0].title.set_text(f'Probability of overfitting: {pbo_test} %')
-    axes[0].hist(x=[l for l in results['logits'] if l > -10000], bins='auto')
-    axes[0].set_xlabel('Logits')
-    axes[0].set_ylabel('Frequency')
-
-    # performance degradation
-    axes[1].title.set_text('Performance degradation')
-    x, y = pd.DataFrame([results['R_n_star'], results['R_bar_n_star']]).dropna(axis=1).values
-    sns.regplot(x=x, y=y, ax=axes[1])
-    #axes[1].set_xlim(min(results['R_n_star']) * 1.2,max(results['R_n_star']) * 1.2)
-    #axes[1].set_ylim(min(results['R_bar_n_star']) * 1.2,max(results['R_bar_n_star']) * 1.2)
-    axes[1].set_xlabel('In-sample Performance')
-    axes[1].set_ylabel('Out-of-sample Performance')
-
-    # first and second Stochastic dominance
-    axes[2].title.set_text('Stochastic dominance')
-    if len(results['dom_df']) != 0: results['dom_df'].plot(ax=axes[2], secondary_y=['SD2'])
-    axes[2].set_xlabel('Performance optimized vs non-optimized')
-    axes[2].set_ylabel('Frequency')
+    if cscv_result is not None:
+        overfitting.plot_cscv(cscv_result)
+        plt.show()
 
 
 def variable_visualization(portfolio):
-
-    param_names = portfolio.cumulative_returns().columns.names
-    dropdown1 = widgets.Dropdown(
-        options=param_names,
-        value=param_names[0],
-        description='axis 1:',
-        disabled=False,
-    )
-    dropdown2 = widgets.Dropdown(
-        options=param_names,
-        value=param_names[0],
-        description='axis 2:',
-        disabled=False,
-    )
-
-    performance_metric = ['final_value',
-        'calmar_ratio', 'max_drawdown', 'sharpe_ratio',
-        'downside_risk', 'omega_ratio', 'conditional_value_at_risk']
-
-    performance_dropdwon = widgets.Dropdown(
-        options=performance_metric,
-        value=performance_metric[0],
-        description='performance',
-        disabled=False,
-    )
-
+    """Interactive heatmap of a metric over two parameters."""
+    param_names = list(portfolio.cumulative_returns().columns.names)
+    axis1 = widgets.Dropdown(options=param_names, value=param_names[0], description='axis 1:')
+    axis2 = widgets.Dropdown(options=param_names, value=param_names[-1], description='axis 2:')
+    metric = widgets.Dropdown(options=DASHBOARD_METRICS, value=DASHBOARD_METRICS[0], description='performance')
     out = widgets.Output()
 
-    import matplotlib.pyplot as plt
-    def update(v):
-        name1 = dropdown1.value
-        name2 = dropdown2.value
-        performance = performance_dropdwon.value
-
+    def update(_):
+        values = getattr(portfolio, metric.value)().replace([np.inf, -np.inf], np.nan)
         with out:
-            # out.clear_output()
-            if name1 != name2:
-                df = (getattr(portfolio, performance)()
-                      .reset_index().groupby([name1, name2]).mean()[performance]
-                      .reset_index().pivot(name1, name2)[performance])
-
-                df = df.replace([np.inf, -np.inf], np.nan)
-                sns.heatmap(df)
+            out.clear_output(wait=True)
+            if axis1.value != axis2.value:
+                sns.heatmap(values.groupby(level=[axis1.value, axis2.value]).mean().unstack())
             else:
-                getattr(portfolio, performance)().groupby(name1).mean().plot()
-
+                values.groupby(level=axis1.value).mean().plot()
             plt.show()
 
-
-    dropdown1.observe(update, 'value')
-    dropdown2.observe(update, 'value')
-    performance_dropdwon.observe(update, 'value')
-    drawdowns = widgets.VBox([performance_dropdwon,
-                 widgets.HBox([dropdown1, dropdown2])])
-    display(drawdowns)
-    display(out)
-    update(0)
+    for dropdown in (axis1, axis2, metric):
+        dropdown.observe(update, 'value')
+    display(widgets.VBox([metric, widgets.HBox([axis1, axis2])]), out)
+    update(None)

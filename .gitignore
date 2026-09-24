@@ -136,3 +136,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# price and on-chain caches created by finlab_crypto
+history/

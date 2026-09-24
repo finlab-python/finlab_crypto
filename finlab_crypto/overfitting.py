@@ -1,147 +1,124 @@
-from statsmodels.distributions.empirical_distribution import ECDF
-import itertools as itr
-import seaborn as sns
+"""Probability of backtest overfitting (Bailey et al., 2016).
+
+Combinatorially symmetric cross-validation (CSCV): split the returns into
+``n_bins`` blocks, use every half of the blocks as in-sample (IS) and the
+rest as out-of-sample (OOS), and check how the IS winner ranks OOS.
+"""
+from itertools import combinations
 
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
-import datetime
-import math
+import pandas as pd
+import seaborn as sns
 
-sharpe_ratio = lambda r: r.mean() / (r.std()+0.0000001) * (365 ** 0.5)
+DAYS_PER_YEAR = 365
+EPSILON = 1e-7
+DOMINANCE_GRID_POINTS = 1000
+LOGIT_DISPLAY_FLOOR = -10000
 
-class CSCV(object):
-    """Combinatorially symmetric cross-validation algorithm.
 
-    Calculate backtesting about overfitting probability distribution and performance degradation.
+def sharpe_ratio(returns):
+    """Annualised Sharpe ratio of daily returns."""
+    return returns.mean() / (returns.std() + EPSILON) * DAYS_PER_YEAR ** 0.5
+
+
+def _ecdf(samples, points):
+    return np.searchsorted(np.sort(samples), points, side='right') / len(samples)
+
+
+class CSCV:
+    """Combinatorially symmetric cross-validation.
 
     Attributes:
-        n_bins:A int of CSCV algorithm bin size to control overfitting calculation.Default is 10.
-        objective:A function of in sample(is) and out of sample(oos) return benchmark algorithm.Default is lambda r:r.mean().
-
+      n_bins: Number of blocks the return history is split into.
+      objective: Performance measure of a block of returns, ex: ``lambda r: r.mean()``.
     """
+
     def __init__(self, n_bins=10, objective=sharpe_ratio):
         self.n_bins = n_bins
         self.objective = objective
-        self.bins_enumeration = [set(x) for x in itr.combinations(np.arange(10), 10 // 2)]
-
-        self.Rs = [pd.Series(dtype=float) for i in range(len(self.bins_enumeration))]
-        self.R_bars = [pd.Series(dtype=float) for i in range(len(self.bins_enumeration))]
+        self.bins_enumeration = [set(c) for c in combinations(range(n_bins), n_bins // 2)]
+        self._is_performance = [[] for _ in self.bins_enumeration]
+        self._oos_performance = [[] for _ in self.bins_enumeration]
 
     def add_daily_returns(self, daily_returns):
-        """Add daily_returns in algorithm.
+        """Add strategies, one column of daily returns each."""
+        bin_size = len(daily_returns) // self.n_bins
+        bins = [daily_returns.iloc[i * bin_size:(i + 1) * bin_size] for i in range(self.n_bins)]
 
-        Args:
-          daily_returns: A dataframe of trading daily_returns.
-
-        """
-        bin_size = daily_returns.shape[0] // self.n_bins
-        bins = [daily_returns.iloc[i*bin_size: (i+1) * bin_size] for i in range(self.n_bins)]
-
-        for set_id, is_set in enumerate(self.bins_enumeration):
-            oos_set = set(range(10)) - is_set
-            is_returns = pd.concat([bins[i] for i in is_set])
-            oos_returns = pd.concat([bins[i] for i in oos_set])
-            R = self.objective(is_returns)
-            R_bar = self.objective(oos_returns)
-            self.Rs[set_id] = pd.concat([self.Rs[set_id], R])
-            self.R_bars[set_id] = pd.concat([self.R_bars[set_id], R_bar])
+        for split, is_set in enumerate(self.bins_enumeration):
+            is_returns = pd.concat([bins[i] for i in sorted(is_set)])
+            oos_returns = pd.concat([bins[i] for i in range(self.n_bins) if i not in is_set])
+            self._is_performance[split].append(self.objective(is_returns))
+            self._oos_performance[split].append(self.objective(oos_returns))
 
     def estimate_overfitting(self, plot=False):
-        """Estimate overfitting probability.
-
-        Generate the result on Combinatorially symmetric cross-validation algorithm.
-        Display related analysis charts.
-
-        Args:
-          plot: A bool of control plot display. Default is False.
+        """Estimate the probability of backtest overfitting.
 
         Returns:
-          A dict of result include:
-          pbo_test: A float of overfitting probability.
-          logits: A float of estimated logits of OOS rankings.
-          R_n_star: A list of IS performance of th trategies that has the best ranking in IS.
-          R_bar_n_star: A list of find the OOS performance of the strategies that has the best ranking in IS.
-          dom_df: A dataframe of optimized_IS, non_optimized_OOS data.
-
+          dict with
+            pbo_test: probability that the IS-best strategy ranks below the OOS median.
+            logits: logit of the OOS rank of the IS-best strategy, per split.
+            R_n_star: IS performance of the IS-best strategy, per split.
+            R_bar_n_star: OOS performance of the IS-best strategy, per split.
+            dom_df: CDFs of OOS performance for optimised vs. non-optimised
+              selection, and their second-order stochastic dominance ``SD2``.
         """
-        # calculate strategy performance in IS(R_df) and OOS(R_bar_df)
-        R_df = pd.DataFrame(self.Rs)
-        R_bar_df = pd.DataFrame(self.R_bars)
+        is_perf = pd.DataFrame([pd.concat(split) for split in self._is_performance])
+        oos_perf = pd.DataFrame([pd.concat(split) for split in self._oos_performance])
+        oos_rank = oos_perf.rank(axis=1, ascending=False, method='first')
 
-        # calculate ranking of the strategies
-        R_rank_df = R_df.rank(axis=1, ascending=False, method='first')
-        R_bar_rank_df = R_bar_df.rank(axis=1, ascending=False, method='first')
+        best = is_perf.dropna(how='all').idxmax(axis=1)
+        splits = best.index
+        position = oos_perf.columns.get_indexer(best)
+        r_star = pd.Series(is_perf.to_numpy()[splits, position])
+        r_bar_star = pd.Series(oos_perf.to_numpy()[splits, position])
+        best_oos_rank = pd.Series(oos_rank.to_numpy()[splits, position]).dropna()
 
-        # find the IS performance of th trategies that has the best ranking in IS
-        r_star_series = (R_df * (R_rank_df == 1)).unstack().dropna()
-        r_star_series = r_star_series[r_star_series != 0].sort_index(level=-1)
+        relative_rank = 1 - best_oos_rank / (is_perf.shape[1] + 1)
+        logits = np.log(relative_rank / (1 - relative_rank))
 
-        # find the OOS performance of the strategies that has the best ranking in IS
-        r_bar_star_series = (R_bar_df * (R_rank_df == 1)).unstack().dropna()
-        r_bar_star_series = r_bar_star_series[r_bar_star_series != 0].sort_index(level=-1)
-
-        # find the ranking of strategies which has the best ranking in IS
-        r_bar_rank_series = (R_bar_rank_df * (R_rank_df == 1)).unstack().dropna()
-        r_bar_rank_series = r_bar_rank_series[r_bar_rank_series != 0].sort_index(level=-1)
-
-        # probability of overfitting
-
-        # estimate logits of OOS rankings
-        logits = (1-((r_bar_rank_series)/(len(R_df.columns)+1))).map(lambda p: math.log(p/(1-p)))
-        prob = (logits < 0).sum() / len(logits)
-
-        # stochastic dominance
-
-        # caluclate
-        if len(r_bar_star_series) != 0:
-            y = np.linspace(
-                min(r_bar_star_series), max(r_bar_star_series), endpoint=True, num=1000
-            )
-
-            # build CDF performance of best candidate in IS
-            R_bar_n_star_cdf = ECDF(r_bar_star_series.values)
-            optimized = R_bar_n_star_cdf(y)
-
-            # build CDF performance of average candidate in IS
-            R_bar_mean_cdf = ECDF(R_bar_df.median(axis=1).values)
-            non_optimized = R_bar_mean_cdf(y)
-
-            #
-            dom_df = pd.DataFrame(
-                dict(optimized_IS=optimized, non_optimized_OOS=non_optimized)
-            , index=y)
-            dom_df["SD2"] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
+        observed = r_bar_star.dropna().to_numpy()
+        if len(observed):
+            grid = np.linspace(observed.min(), observed.max(), DOMINANCE_GRID_POINTS)
+            dom_df = pd.DataFrame({
+                'optimized_IS': _ecdf(observed, grid),
+                'non_optimized_OOS': _ecdf(oos_perf.median(axis=1).to_numpy(), grid),
+            }, index=grid)
+            dom_df['SD2'] = -(dom_df.non_optimized_OOS - dom_df.optimized_IS).cumsum()
         else:
             dom_df = pd.DataFrame(columns=['optimized_IS', 'non_optimized_OOS', 'SD2'])
 
-        ret = {
-            'pbo_test': (logits < 0).sum() / len(logits),
+        result = {
+            'pbo_test': (logits < 0).mean(),
             'logits': logits.to_list(),
-            'R_n_star': r_star_series.to_list(),
-            'R_bar_n_star': r_bar_star_series.to_list(),
+            'R_n_star': r_star.to_list(),
+            'R_bar_n_star': r_bar_star.to_list(),
             'dom_df': dom_df,
         }
-
         if plot:
-            # probability distribution
-            plt.title('Probability Distribution')
-            plt.hist(x=[l for l in ret['logits'] if l > -10000], bins='auto')
-            plt.xlabel('Logits')
-            plt.ylabel('Frequency')
+            plot_cscv(result)
             plt.show()
+        return result
 
-            # performance degradation
-            plt.title('Performance degradation')
-            plt.scatter(ret['R_n_star'], ret['R_bar_n_star'])
-            plt.xlabel('In-sample Performance')
-            plt.ylabel('Out-of-sample Performance')
 
-            # first and second Stochastic dominance
-            plt.title('Stochastic dominance')
-            ret['dom_df'].plot(secondary_y=['SD2'])
-            plt.xlabel('Performance optimized vs non-optimized')
-            plt.ylabel('Frequency')
-            plt.show()
+def plot_cscv(result):
+    """Plot the logit histogram, performance degradation and stochastic dominance."""
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig.subplots_adjust(bottom=0.5)
+    fig.suptitle('Combinatorially Symmetric Cross-validation')
 
-        return ret
+    axes[0].set_title(f'Probability of overfitting: {result["pbo_test"] * 100:.2f} %')
+    axes[0].hist(x=[logit for logit in result['logits'] if logit > LOGIT_DISPLAY_FLOOR], bins='auto')
+    axes[0].set(xlabel='Logits', ylabel='Frequency')
+
+    axes[1].set_title('Performance degradation')
+    degradation = pd.DataFrame({'IS': result['R_n_star'], 'OOS': result['R_bar_n_star']}).dropna()
+    sns.regplot(x=degradation.IS.to_numpy(), y=degradation.OOS.to_numpy(), ax=axes[1])
+    axes[1].set(xlabel='In-sample Performance', ylabel='Out-of-sample Performance')
+
+    axes[2].set_title('Stochastic dominance')
+    if len(result['dom_df']):
+        result['dom_df'].plot(ax=axes[2], secondary_y=['SD2'])
+    axes[2].set(xlabel='Performance optimized vs non-optimized', ylabel='Frequency')
+    return fig

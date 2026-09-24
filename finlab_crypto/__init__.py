@@ -1,59 +1,21 @@
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-from . import crawler
-from .strategy import Strategy
-from .strategy import Filter
-
+"""Develop, verify and deploy crypto trading strategies."""
 import vectorbt as vbt
-import sys
-import os
 
-__version__ = '0.2.27'
+from finlab_crypto import crawler, onchain
+from finlab_crypto.strategy import Filter, Strategy
 
+__version__ = '0.3.0'
+__all__ = ['Filter', 'Strategy', 'crawler', 'onchain', 'setup']
 
-# set default fees and slippage
-vbt.settings.portfolio['init_cash'] = 100.0 # in $
-vbt.settings.portfolio['fees'] = 0.001       # in %
-vbt.settings.portfolio['slippage'] = 0.001  # in %
+DEFAULT_INIT_CASH = 100.0
+DEFAULT_FEES = 0.001
+DEFAULT_SLIPPAGE = 0.001
 
-# has workspace
-def check_and_create_dir(dname):
-  has_dir = os.path.isdir(dname)
-  if not has_dir:
-    os.mkdir(dname)
+vbt.settings.portfolio['init_cash'] = DEFAULT_INIT_CASH
+vbt.settings.portfolio['fees'] = DEFAULT_FEES
+vbt.settings.portfolio['slippage'] = DEFAULT_SLIPPAGE
 
-def setup_colab():
-  google_drive_connected = os.path.isdir('/content/drive/My Drive')
-
-  if not google_drive_connected:
-    print('|------------------------------')
-    print('| Google Drive not connected!  ')
-    print('|------------------------------')
-    print('|')
-    print('| Please connect google drive:')
-    from google.colab import drive
-    drive.mount('/content/drive')
-
-  # ln -s var
-  def ln_dir(path):
-    dir = path.split('/')[-1]
-    if not os.path.isdir(dir):
-        os.symlink(path, dir)
-
-  check_and_create_dir('/content/drive/My Drive/crypto_workspace')
-  # check_and_create_dir('/content/drive/My Drive/crypto_workspace/strategies')
-  check_and_create_dir('/content/drive/My Drive/crypto_workspace/history')
-  # check_and_create_dir('/content/drive/My Drive/crypto_workspace/filters')
-  # ln_dir("/content/drive/My Drive/crypto_workspace/strategies")
-  # ln_dir("/content/drive/My Drive/crypto_workspace/filters")
-  ln_dir("/content/drive/My Drive/crypto_workspace/history")
 
 def setup():
-    IN_COLAB = 'google.colab' in sys.modules
-    if IN_COLAB:
-        setup_colab()
-    else:
-        # check_and_create_dir('strategies')
-        # check_and_create_dir('filters')
-        check_and_create_dir('history')
-
+    """Create ./history/, where downloaded prices are cached."""
+    crawler.HISTORY_DIR.mkdir(exist_ok=True)

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finlab-crypto"
+dynamic = ["version"]
+description = "Develop, backtest and deploy crypto trading strategies"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "FinLab", email = "finlabstaff@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "ipywidgets>=7.7",
+    "matplotlib>=3.7",
+    "numpy>=1.26",
+    "pandas>=2.0,<3",
+    # vectorbt's bundled templates use layout keys that plotly 7 removed
+    "plotly>=5.18,<7",
+    "pyecharts>=2.0",
+    "requests>=2.31",
+    "scipy>=1.11",
+    "seaborn>=0.13",
+    "ta-lib>=0.6",
+    "tqdm>=4.66",
+    "vectorbt>=0.28.5,<1.1",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Framework :: Jupyter",
+]
+
+[project.optional-dependencies]
+trade = ["python-binance>=1.0.19"]
+test = ["pytest>=8", "python-binance>=1.0.19"]
+
+[project.urls]
+Homepage = "https://github.com/finlab-python/finlab_crypto"
+Course = "https://hahow.in/cr/crypto-python"
+
+[tool.setuptools]
+packages = ["finlab_crypto"]
+
+[tool.setuptools.dynamic]
+version = { attr = "finlab_crypto.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["*_test.py"]
+markers = ["network: needs internet access to public market data"]
+filterwarnings = ["ignore:FigureCanvasAgg is non-interactive:UserWarning"]

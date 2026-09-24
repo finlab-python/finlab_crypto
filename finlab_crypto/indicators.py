@@ -1,72 +1,83 @@
-import sys
+"""Trend filters (moving averages and digital filters) used in the course.
+
+Every function takes a price ``pd.Series`` and a period ``n`` and returns a
+smoothed ``pd.Series`` on the same index. ``trends`` maps names to functions.
+"""
 import math
-import scipy
+
 import numpy as np
 import pandas as pd
 import scipy.signal as sg
-import matplotlib.pyplot as plt
+import talib
+
+HIGHPASS_POLE = 0.707
+ALMA_SIGMA_RATIO = 0.2
+
 
 def sma(price, n):
-  return price.rolling(n).mean()
+    """Simple moving average."""
+    return price.rolling(n).mean()
+
+
 def wma(price, n):
-  return price.ewm(com=n).mean()
+    """Exponentially weighted moving average with centre of mass ``n``."""
+    return price.ewm(com=n).mean()
 
-# Highpass filter by John F. Ehlers, converted by DdlV
-def highpass(Data, n=48):
-  a	= (0.707*2*math.pi) / n
 
-  alpha1 = (math.cos(a)+math.sin(a)-1)/math.cos(a);
-  b	= 1-alpha1/2
-  c	= 1-alpha1
+def highpass(price, n=48):
+    """John F. Ehlers' 2-pole high-pass filter (removes the trend, keeps the noise)."""
+    a = HIGHPASS_POLE * 2 * math.pi / n
+    alpha = (math.cos(a) + math.sin(a) - 1) / math.cos(a)
+    b = 1 - alpha / 2
+    c = 1 - alpha
 
-  ret = [0] * len(Data)
-  for i in range(2, len(Data)):
-    ret[i] = b*b*(Data.iloc[i]-2*Data[i-1]+Data.iloc[i-2])+2*c*ret[i-1]-c*c*ret[i-2]
+    x = price.to_numpy(dtype=float)
+    drive = np.zeros_like(x)
+    drive[2:] = b * b * (x[2:] - 2 * x[1:-1] + x[:-2])
+    return pd.Series(sg.lfilter([1], [1, -2 * c, c * c], drive), index=price.index)
 
-  return pd.Series(ret, index=Data.index)
 
-# lowpass filter
-def lowpass(Data,n):
-  a = 2.0/(1+n)
+def lowpass(price, n):
+    """John F. Ehlers' 2-pole low-pass filter."""
+    a = 2 / (1 + n)
+    x = price.to_numpy(dtype=float)
+    feedforward = [a - a * a / 4, a * a / 2, -(a - 3 * a * a / 4)]
+    feedback = [1, -2 * (1 - a), (1 - a) ** 2]
 
-  lp = [Data[0], Data[1]] + [0] * (len(Data) - 2)
-  for i in range(2, len(Data)):
-    lp[i] = (a-0.25*a*a)*Data[i]+ 0.5*a*a*Data[i-1]\
-      - (a-0.75*a*a)*Data[i-2]\
-      + 2*(1.-a)*lp[i-1]\
-      - (1.-a)*(1.-a)*lp[i-2]
+    filtered = x.copy()
+    drive = sg.lfilter(feedforward, [1], x)[2:]
+    initial = sg.lfiltic([1], feedback, y=[x[1], x[0]])
+    filtered[2:] = sg.lfilter([1], feedback, drive, zi=initial)[0]
+    return pd.Series(filtered, index=price.index)
 
-  return pd.Series(lp, index=Data.index)
 
 def hullma(price, n):
-  wma1 = wma(price, n//2)
-  wma2 = wma(price, n)
-  return wma(wma1 * 2 - wma2, int(math.sqrt(n)))
+    """Hull moving average."""
+    return wma(wma(price, n // 2) * 2 - wma(price, n), int(math.sqrt(n)))
+
 
 def zlma(price, n):
-  """
-  John Ehlers' Zero lag (exponential) moving average
-  https://en.wikipedia.org/wiki/Zero_lag_exponential_moving_average
-  """
-  lag = (n - 1) // 2
-  series = 2 * price - price.shift(lag)
-  return wma(series, n)
+    """John Ehlers' zero-lag exponential moving average."""
+    lag = (n - 1) // 2
+    return wma(2 * price - price.shift(lag), n)
+
 
 def alma(price, n):
-  # triangular window with 60 samples.
-  h = sg.gaussian(n, n*0.2)
+    """Arnaud Legoux moving average (Gaussian-weighted, causal)."""
+    window = sg.windows.gaussian(n, n * ALMA_SIGMA_RATIO)
+    filtered = sg.convolve(price.to_numpy(dtype=float), window / window.sum())
+    return pd.Series(filtered[:len(price)], index=price.index)
 
-  # We convolve the signal with this window.
-  fil = sg.convolve(price, h / h.sum())
-  filtered = pd.Series(fil[:len(price)], index=price.index)
-  return filtered
 
 def detrend(price, n):
-  return price - highpass(price, n)
+    """Price minus its high-pass component."""
+    return price - highpass(price, n)
+
 
 def linear_reg(price, n):
-  import talib
-  return talib.LINEARREG(price, timeperiod=n)
+    """End point of an ``n``-bar linear regression."""
+    return talib.LINEARREG(price, timeperiod=n)
+
 
 trends = {
     'sma': sma,
@@ -76,5 +87,5 @@ trends = {
     'zlma': zlma,
     'alma': alma,
     'detrend': detrend,
-    'linear_reg': linear_reg
+    'linear_reg': linear_reg,
 }
